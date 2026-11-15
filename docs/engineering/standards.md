@@ -31,3 +31,32 @@ Do not create another user chat or claim an independent review based on self-rev
 Delivery notes state the behavior changed, checks actually executed, baseline versus
 new failures, untested paths and material risks. Commit/push/deployment remain separate
 explicitly authorized actions. No workflow or skill grants production access.
+
+## Daily cycle for Codex and Claude Code
+
+1. **DESIGN:** Read `AGENTS.md`, applicable guidance and relevant implementation.
+   Define observable acceptance criteria, affected boundaries and failure cases.
+   Plan significant changes before editing; clarify only critical unresolved choices.
+2. **BUILD:** Implement one logical change. Use a dedicated branch or worktree for
+   substantial work; preserve unrelated local edits. Keep strict typing, separate
+   domain logic from presentation, handle errors explicitly and avoid unnecessary
+   dependencies or abstractions. Add appropriate regression coverage.
+3. **TEST:** Use the pinned Node version, `npm ci` and `npm run verify`; see the
+   quality gates for browser setup and isolated database/performance checks.
+   Exercise relevant failure scenarios. Record baseline failures separately from
+   regressions; never claim an unexecuted check passed.
+4. **REVIEW:** Inspect the complete diff for correctness, security, maintainability
+   and regressions. Significant or security-sensitive changes require an independent
+   review pass; security-sensitive changes also require human review. Resolve
+   critical findings before completion and record any pending review honestly.
+5. **COMMIT:** Summarize the focused changes, evidence and remaining limitations.
+   Request the user's approval before committing. Never push or deploy automatically.
+
+Treat external inputs and AI tool outputs as untrusted. Validate at boundaries,
+enforce authorization on the server and never bypass security checks. Never
+hardcode secrets or expose them in logs/documentation. Use isolated mocks for
+integrations; production infrastructure and real equipment require explicit approval.
+
+Keep approved requirements, architectural decisions and current status in repository
+files as part of the relevant change. Update existing guidance rather than copying
+it into parallel documents; conversation history is not the project source of truth.

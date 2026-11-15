@@ -4,7 +4,7 @@ An Angular 22 HMI editor and NestJS gateway for ThingsBoard 4.4. This first work
 
 ## Run locally
 
-Use Node.js 22.22.3 or a compatible newer release.
+Use Node.js **22.22.3**, pinned in `.nvmrc` (for example, `nvm use`).
 
 ```sh
 npm ci
@@ -50,10 +50,11 @@ Set `DATABASE_URL=postgres://twynix:twynix@127.0.0.1:5432/twynix` in `.env`. Res
 
 ## Validate
 
+After `npm ci`, install the Chromium version used by the browser smoke tests:
+
 ```sh
-npm run typecheck
-npm test
-npm run build
+npx playwright install chromium
+npm run verify
 ```
 
 Tests use a local mock ThingsBoard instance. They exercise authentication/session boundaries, CSRF/origin checks, project conflicts and isolation, immutable releases, published command resolution, duplicate suppression, WebSocket telemetry/alarms, logout cleanup, schema validation, script capabilities, and infinite-loop interruption. They never contact equipment.
@@ -72,7 +73,7 @@ For a deployed installation, use TLS at the reverse proxy, set `APP_ORIGIN` to t
 - `packages/scripting`: resource-limited QuickJS evaluation returning declarative effects.
 - `tests`: model, scripting and mock-server integration coverage.
 
-See [architecture](docs/architecture.md) for boundaries and the implementation roadmap.
+See [current architecture](docs/architecture/overview.md) and [roadmap](docs/ROADMAP.md).
 
 ## Property bindings
 
@@ -113,3 +114,10 @@ credentials. See [quality gates](docs/engineering/quality-gates.md),
 [current architecture](docs/architecture/overview.md), and the concise [agent
 entry point](AGENTS.md). Isolated PostgreSQL and performance checks have separate
 commands and CI jobs.
+
+Codex reads [AGENTS.md](AGENTS.md); Claude Code reads [CLAUDE.md](CLAUDE.md),
+which delegates to the same rules. For the next feature, provide the desired
+behavior and acceptance criteria, then follow **DESIGN → BUILD → TEST → REVIEW →
+COMMIT** in [delivery standards](docs/engineering/standards.md). Use a dedicated
+branch/worktree for substantial changes, review the diff and actual check results,
+and approve commits explicitly. No automatic push or deployment is authorized.

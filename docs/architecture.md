@@ -1,5 +1,13 @@
 # Architecture and implementation status
 
+For the current package map, data flow and limits, start with
+[current architecture](architecture/overview.md),
+[editor/runtime](architecture/editor-runtime.md),
+[ThingsBoard integration](architecture/thingsboard-integration.md) and
+[security boundaries](architecture/security-boundaries.md). The first-slice counts
+and future milestones below are historical context; see the [roadmap](ROADMAP.md)
+for current priorities.
+
 Twynix owns engineering projects and operator presentation. ThingsBoard 4.4 owns user identity, entity access, telemetry, alarms and device RPC. The gateway is the only component holding ThingsBoard tokens. The designer and published runtime render the same schema through the same SVG symbol component.
 
 ## Data and session flow

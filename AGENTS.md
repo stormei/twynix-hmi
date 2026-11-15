@@ -14,12 +14,20 @@ without an explicit task requirement.
   executes all gates and returns failure if any gate fails. See known baseline debt.
 - PostgreSQL and performance checks are additional isolated gates; see quality gates.
 
+Codex and Claude Code share these rules; `CLAUDE.md` points here. Start each new
+conversation from these files and the actual implementation, not chat history.
+Inspect existing code before editing; do not invent requirements. Resolve routine
+choices using project conventions and ask only about critical unresolved decisions.
+For significant work, define acceptance criteria and a short plan first. Follow
+**DESIGN → BUILD → TEST → REVIEW → COMMIT** in the shared delivery standards.
+
 Read only the guidance relevant to the task:
 
 - Architecture: [overview](docs/architecture/overview.md),
   [editor/runtime](docs/architecture/editor-runtime.md),
   [ThingsBoard](docs/architecture/thingsboard-integration.md),
   [security](docs/architecture/security-boundaries.md).
+- Status and priorities: [roadmap](docs/ROADMAP.md).
 - Delivery: [standards](docs/engineering/standards.md),
   [quality gates](docs/engineering/quality-gates.md),
   [technical debt](docs/engineering/technical-debt.md).

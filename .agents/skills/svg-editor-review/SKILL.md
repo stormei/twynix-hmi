@@ -12,8 +12,9 @@ math test alone does not verify the browser gesture/rendering path.
 Trace target-pixel coordinates through viewbox letterboxing, zoom/pan, rulers,
 selection rectangles, ghost previews, resize handles and screen bounds. Check
 multiple zooms, reversed drag directions, modifier keys, cancellation and grouped
-offsets. Rotation exists only for supported quarter-turn pipe fittings; do not
-assume general rotation or nested groups are implemented.
+offsets. Preserve free-angle rotation, logical content proportions in `rotationSize`
+and legacy quarter-turn dimensions. Check shared symbol/port transforms and
+render-only handle feedback. Nested groups remain unsupported.
 
 For connections, preserve port identity and occupancy, endpoints after moves/resizes,
 pinned bends, obstacle handling and bridge-versus-tee semantics. Verify electrical,
