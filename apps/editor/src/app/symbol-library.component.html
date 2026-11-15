@@ -1,0 +1,109 @@
+<div class="library-search">
+  <tx-icon name="search" />
+  <input
+    aria-label="Search symbol library"
+    placeholder="Search symbols and widgets…"
+    [value]="query()"
+    (input)="query.set($any($event.target).value)"
+  />
+  @if (query()) {
+    <button aria-label="Clear symbol search" (click)="query.set('')">×</button>
+  }
+</div>
+<p class="library-hint">Browse a category, then click or drag to add.</p>
+<nav aria-label="Symbol library categories">
+  @for (category of matches(); track category.id) {
+    <section class="library-category">
+      <button
+        class="category-heading"
+        [attr.aria-expanded]="isOpen(category.id)"
+        [attr.aria-controls]="'library-' + category.id"
+        (click)="toggle(category.id)"
+      >
+        <tx-icon name="chevron-right" [class.expanded]="isOpen(category.id)" /><tx-icon
+          [name]="category.icon"
+        />
+        <span>{{ category.label }}</span><small>{{ category.count }}</small>
+      </button>
+      @if (isOpen(category.id)) {
+        <div [id]="'library-' + category.id" [attr.aria-label]="category.label" role="group">
+          @if (category.id === 'inputs') {
+            <button
+              class="example-button"
+              [disabled]="!editable()"
+              (click)="commandExampleRequested.emit()"
+            >
+              Add command Preview example
+            </button>
+          }
+          @if (category.id === 'dashboard') {
+            <button
+              class="example-button"
+              [disabled]="!editable()"
+              (click)="exampleRequested.emit()"
+            >
+              Add dashboard example screen
+            </button>
+          }
+          <div
+            [class]="
+              ['dashboard', 'inputs'].includes(category.id) ? 'dashboard-items' : 'symbol-items'
+            "
+          >
+            @for (kind of category.kinds; track kind) {
+              <button
+                class="library-item"
+                [disabled]="!editable()"
+                [draggable]="editable()"
+                (click)="chosen.emit(kind)"
+                (dragstart)="dragStarted.emit({ event: $event, kind })"
+                [attr.aria-label]="'Add ' + labels()[kind]"
+              >
+                @if (isDashboardKind(kind)) {
+                  <tx-icon [name]="kind" /><span
+                    ><b>{{ registry[kind].label }}</b
+                    ><small>{{ registry[kind].description }}</small></span
+                  >
+                } @else {
+                  <svg
+                    class="library-symbol-preview"
+                    twynixSymbol
+                    [visualStyle]="visualStyle()"
+                    [widget]="palette[kind]"
+                    [value]="palette[kind].demoValue"
+                    quality="simulation"
+                    color="#329c8c"
+                    [samples]="[25, 32, 28, 40, 37, 53, 46, 61]"
+                  ></svg
+                  ><span>{{ labels()[kind] }}</span>
+                }
+                <span class="add-mark">+</span>
+              </button>
+            }
+          </div>
+          @if (category.presets.length) {
+            <div class="isa-presets">
+              <span>ISA instrument functions</span>
+              <div>
+                @for (code of category.presets; track code) {
+                  <button
+                    [disabled]="!editable()"
+                    [attr.aria-label]="'Add ' + code + ' instrument'"
+                    [title]="instrumentLabels[code]"
+                    (click)="instrumentChosen.emit(code)"
+                  >
+                    {{ code }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  } @empty {
+    <p class="empty-library" role="status">
+      No matching symbols. Try “pump”, “chart” or “pressure”.
+    </p>
+  }
+</nav>

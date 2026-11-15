@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "projects": {
+    "editor": {
+      "projectType": "application",
+      "root": "apps/editor",
+      "sourceRoot": "apps/editor/src",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "apps/editor/src/main.ts",
+            "tsConfig": "apps/editor/tsconfig.json",
+            "index": "apps/editor/src/index.html",
+            "styles": ["apps/editor/src/styles.css"],
+            "outputPath": "dist/editor",
+            "assets": [
+              {
+                "glob": "*.wasm",
+                "input": "node_modules/@jitl/quickjs-wasmfile-release-sync/dist",
+                "output": "/assets/"
+              }
+            ],
+            "budgets": [{ "type": "initial", "maximumWarning": "1mb", "maximumError": "2mb" }]
+          },
+          "configurations": {
+            "production": { "outputHashing": "all" },
+            "development": { "optimization": false, "sourceMap": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "buildTarget": "editor:build:development",
+            "proxyConfig": "apps/editor/proxy.conf.json"
+          }
+        }
+      }
+    }
+  }
+}

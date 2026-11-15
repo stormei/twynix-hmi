@@ -1,0 +1,48 @@
+<section aria-label="Preview command history">
+  <details open>
+    <summary>
+      Command history <span>{{ entries().length }} · Preview only</span>
+    </summary>
+    @if (entries().length) {
+      <div class="history-scroll" tabindex="0" aria-label="Command history entries">
+        <table>
+          <caption>
+            Latest 100 Preview attempts · newest first · Reset example clears history
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Time / control</th>
+              <th scope="col">Requested</th>
+              <th scope="col">Simulated result</th>
+              <th scope="col">Status / validation</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of entries(); track entry.id) {
+              <tr>
+                <td>
+                  <time>{{ entry.recordedAt | date: 'HH:mm:ss' }}</time><strong>{{
+                    entry.name
+                  }}</strong
+                  ><small>{{ entry.method }}</small>
+                </td>
+                <td>{{ display(entry.requested) }}</td>
+                <td>
+                  {{ entry.simulationResult ? outcomes[entry.simulationResult] : 'Not simulated'
+                  }}<small>Reported: {{ display(entry.reported) }}</small>
+                </td>
+                <td>
+                  <strong
+                    [class.error]="['invalid', 'denied', 'failed', 'timeout'].includes(entry.phase)"
+                    >{{ entry.phase }}</strong><small>{{ entry.message }}</small>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p>No attempts yet. Change a control to compare requests, results and validation here.</p>
+    }
+  </details>
+</section>

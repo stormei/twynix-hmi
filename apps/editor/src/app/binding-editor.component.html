@@ -1,0 +1,220 @@
+<dialog #dialog class="binding-dialog" (close)="closed.emit()">
+  <header class="binding-dialog-header">
+    <div>
+      <span class="eyebrow">{{ widget().name }} / {{ property() }}</span>
+      <h2>{{ label() }} binding</h2>
+    </div>
+    <button type="button" class="modal-close" aria-label="Close binding editor" (click)="close()">
+      ×
+    </button>
+  </header>
+  <div class="binding-dialog-content">
+    <nav class="binding-source-tabs" aria-label="Binding source type">
+      @for (source of sourceTypes; track source) {
+        <button
+          type="button"
+          [class.active]="type === source"
+          [attr.aria-pressed]="type === source"
+          (click)="setType(source)"
+        >
+          <tx-icon
+            [name]="
+              source === 'constant' ? 'value' : source === 'telemetry' ? 'binding' : 'console'
+            "
+          />{{
+            source === 'constant'
+              ? 'Constant'
+              : source === 'telemetry'
+                ? 'Data source'
+                : 'Expression'
+          }}
+        </button>
+      }
+    </nav>
+    <div class="binding-source-form">
+      <label class="check-field"
+        ><input type="checkbox" [(ngModel)]="enabled" (ngModelChange)="changed()" />Binding
+        enabled</label
+      >
+      @if (!enabled) {
+        <div class="info-note">
+          This definition is retained, but the component uses its unbound property setting.
+        </div>
+      }
+      @if (type === 'constant') {
+        <p class="panel-intro">Use an explicit fixed value in both Preview and Runtime.</p>
+        @if (isBoolean()) {
+          <label
+            >Fixed state<select [(ngModel)]="booleanConstant" (ngModelChange)="changed()">
+              <option [ngValue]="true">True</option>
+              <option [ngValue]="false">False</option>
+            </select></label
+          >
+        } @else {
+          <label
+            >Fixed {{ label().toLowerCase()
+            }}<input
+              [type]="
+                property() === 'value' &&
+                !['dropdown', 'radio', 'segmented'].includes(widget().kind)
+                  ? 'number'
+                  : 'text'
+              "
+              [(ngModel)]="constant"
+              (ngModelChange)="changed()"
+              [placeholder]="property() === 'color' ? '#329c8c' : ''"
+          /></label>
+        }
+      }
+      @if (type === 'expression') {
+        <p class="panel-intro">
+          Write one JavaScript expression. It can read <code>context.value</code>,
+          <code>context.quality</code>, and <code>context.name</code>.
+        </p>
+        <label
+          >Expression<textarea
+            class="binding-expression"
+            rows="4"
+            spellcheck="false"
+            [(ngModel)]="expression"
+            (ngModelChange)="changed()"
+          ></textarea>
+        </label>
+        <label class="check-field"
+          ><input type="checkbox" [(ngModel)]="useSource" (ngModelChange)="changed()" />Use a
+          separate telemetry input</label
+        >
+        @if (!useSource) {
+          <p class="field-hint">
+            Input is this component's resolved value. The value property itself uses its unbound
+            value as input.
+          </p>
+        }
+      }
+      @if (type === 'telemetry' || (type === 'expression' && useSource)) {
+        <p class="panel-intro">
+          Read-only ThingsBoard telemetry or attributes. No writeback is performed.
+        </p>
+        <div class="field-grid">
+          <label
+            >Entity type<select [(ngModel)]="entityType" (ngModelChange)="loadKeys()">
+              <option value="DEVICE">Device</option>
+              <option value="ASSET">Asset</option>
+            </select></label
+          >
+          <label
+            >Freshness timeout (seconds)<input
+              type="number"
+              min="1"
+              max="86400"
+              [(ngModel)]="staleAfterSeconds"
+              (ngModelChange)="changed()"
+          /></label>
+        </div>
+        <tx-data-browser
+          [staleAfterMs]="staleAfterSeconds * 1000"
+          (sourceSelected)="chooseSource($event)"
+        />
+        <label
+          >Source kind<select
+            aria-label="Source kind"
+            [(ngModel)]="dataType"
+            (ngModelChange)="loadKeys()"
+          >
+            <option value="TIME_SERIES">Telemetry</option>
+            <option value="ATTRIBUTE">Attribute</option>
+          </select></label
+        >
+        <label
+          >Entity ID<input
+            [(ngModel)]="entityId"
+            (ngModelChange)="changed()"
+            (change)="loadKeys()"
+            placeholder="ThingsBoard entity UUID"
+        /></label>
+        <div class="field-grid">
+          <label
+            >Telemetry key<input
+              [(ngModel)]="telemetryKey"
+              (ngModelChange)="changed()"
+              list="binding-source-keys"
+              placeholder="e.g. pressure" /><datalist id="binding-source-keys">
+              @for (key of keys(); track key) {
+                <option [value]="key"></option>
+              }</datalist></label
+          ><label
+            >Display unit<input
+              [(ngModel)]="unit"
+              (ngModelChange)="changed()"
+              maxlength="24"
+              placeholder="e.g. bar"
+          /></label>
+        </div>
+      }
+      @if (type === 'expression' && !useSource) {
+        <div class="binding-test-input">
+          <label class="check-field"
+            ><input type="checkbox" [(ngModel)]="useSample" (ngModelChange)="changed()" />Test with
+            sample input</label
+          >
+          @if (useSample) {
+            <div class="field-grid">
+              <label
+                >Sample value (JSON or text)<input
+                  [(ngModel)]="sampleValue"
+                  (ngModelChange)="changed()" /></label
+              ><label
+                >Sample quality<select [(ngModel)]="sampleQuality" (ngModelChange)="changed()">
+                  <option value="simulation">Simulation</option>
+                  <option value="good">Good</option>
+                  <option value="stale">Stale</option>
+                  <option value="unknown">Unknown</option>
+                </select></label
+              >
+            </div>
+          }
+          <p class="field-hint">
+            Sample input is used only by Test binding. It is never saved or used in Runtime.
+          </p>
+        </div>
+      }
+      <div class="binding-preview" aria-live="polite">
+        <div>
+          <span>TEST RESULT</span>
+          @if (preview(); as result) {
+            <strong>{{ display(result.value) }}</strong><small>Quality: {{ result.quality }}</small>
+          } @else {
+            <p>Test the binding to inspect its output and data quality.</p>
+          }
+        </div>
+        <button type="button" class="button secondary" [disabled]="testing()" (click)="test()">
+          {{ testing() ? 'Evaluating…' : 'Test binding' }}
+        </button>
+      </div>
+      @if (error()) {
+        <div class="inline-error" role="alert">{{ error() }}</div>
+      }
+      @if (property() === 'visible' || property() === 'enabled') {
+        <p class="field-hint">
+          Unknown, stale or invalid input keeps the component visible and prevents activation
+          through a bound enabled state. Equipment interlocks must still be enforced by the
+          controller.
+        </p>
+      }
+    </div>
+  </div>
+  <footer class="binding-dialog-footer">
+    <button
+      type="button"
+      class="text-button danger"
+      [disabled]="!hasDefinition()"
+      (click)="applied.emit(null)"
+    >
+      Remove binding</button
+    ><span class="top-spacer"></span
+    ><button type="button" class="button secondary" (click)="close()">Cancel</button
+    ><button type="button" class="button primary" [disabled]="testing()" (click)="apply()">
+      Apply binding
+    </button>
+  </footer>
+</dialog>

@@ -1,0 +1,222 @@
+<div class="section-heading">
+  <span>REUSABLE COMPONENTS</span><span class="count">{{ store.project().components.length }}</span>
+</div>
+<p class="panel-intro">
+  Compose widgets once. Give every instance its own inputs and equipment source.
+</p>
+<div class="library-create">
+  <button
+    class="button secondary full"
+    [disabled]="!store.selectedWidgets().length || store.selectedWidgets().length > 50"
+    (click)="capture()"
+  >
+    Create component from selection
+  </button>
+  @if (instance(); as instance) {
+    <button class="button secondary full" (click)="configure(instance.typeId, instance.instanceId)">
+      Configure selected instance
+    </button>
+  }
+</div>
+<div class="faceplate-library">
+  @for (type of store.project().components; track type.id) {
+    <article class="faceplate-card">
+      <header>
+        <div>
+          <b>{{ type.name }}</b><small
+            >v{{ type.versions.at(-1)!.version }} ·
+            {{ type.versions.at(-1)!.widgets.length }} widgets</small
+          >
+        </div>
+      </header>
+      <p>{{ type.description }}</p>
+      <footer>
+        <button
+          class="button secondary small"
+          [disabled]="!store.selectedWidgets().length || store.selectedWidgets().length > 50"
+          (click)="capture(type)"
+        >
+          New version from selection</button
+        ><button class="button primary small" (click)="configure(type.id)">Add</button>
+      </footer>
+    </article>
+  }
+</div>
+@if (draft(); as version) {
+  <dialog
+    txModal
+    class="modal reusable-component-dialog"
+    aria-label="Reusable component type"
+    (close)="draft.set(null)"
+  >
+    <span class="eyebrow">REUSABLE COMPONENT</span>
+    <h2>{{ editingType() ? 'Publish new version' : 'Create component type' }}</h2>
+    <form (ngSubmit)="publish()">
+      <label
+        >Component name<input name="componentName" [(ngModel)]="name" required maxlength="100"
+      /></label>
+      <label
+        >Description<textarea
+          name="componentDescription"
+          [(ngModel)]="description"
+          maxlength="500"
+        ></textarea>
+      </label>
+      <p class="panel-intro">
+        Expose named inputs for the properties operators and screen designers should configure per
+        instance.
+      </p>
+      <div class="component-input-tree">
+        @for (widget of version.widgets; track widget.id) {
+          <details>
+            <summary>{{ widget.name }}</summary>
+            @for (property of properties; track property) {
+              <div class="component-input-row">
+                <label class="check-field"
+                  ><input
+                    type="checkbox"
+                    [checked]="!!parameter(widget.id, property)"
+                    (change)="expose(widget.id, property, $any($event.target).checked)"
+                  />{{ property }}</label
+                >
+                @if (parameter(widget.id, property); as input) {
+                  <input
+                    [attr.aria-label]="widget.name + ' ' + property + ' input name'"
+                    [ngModel]="input.name"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="renameInput(widget.id, property, $event)"
+                    placeholder="Input name"
+                  />
+                  @if (property === 'visible' || property === 'enabled') {
+                    <select
+                      [attr.aria-label]="widget.name + ' ' + property + ' default'"
+                      [ngModel]="input.value"
+                      [ngModelOptions]="{ standalone: true }"
+                      (ngModelChange)="setDefault(widget.id, property, $event)"
+                    >
+                      <option [ngValue]="true">True</option>
+                      <option [ngValue]="false">False</option>
+                    </select>
+                  } @else {
+                    <input
+                      [attr.aria-label]="widget.name + ' ' + property + ' default'"
+                      [type]="
+                        property === 'value' ? 'number' : property === 'color' ? 'color' : 'text'
+                      "
+                      [ngModel]="input.value"
+                      [ngModelOptions]="{ standalone: true }"
+                      (ngModelChange)="setDefault(widget.id, property, $event)"
+                      placeholder="Default value"
+                    />
+                  }
+                }
+              </div>
+            }
+          </details>
+        }
+      </div>
+      <div class="info-note">
+        {{ version.widgets.length }} widgets and {{ version.connections.length }} internal
+        connections. Position, locks and device command targets are not shared.
+        {{
+          needsEntity(version)
+            ? 'Telemetry sources will use the instance device or asset.'
+            : 'No equipment source is required.'
+        }}
+        Existing instances stay on their current version.
+      </div>
+      @if (error()) {
+        <p class="inline-error" role="alert">{{ error() }}</p>
+      }
+      <div class="modal-actions">
+        <button type="button" class="button secondary" (click)="draft.set(null)">Cancel</button
+        ><button type="submit" class="button primary">Publish component</button>
+      </div>
+    </form>
+  </dialog>
+}
+@if (configType(); as type) {
+  <dialog
+    txModal
+    class="modal reusable-component-dialog"
+    aria-label="Component instance inputs"
+    (close)="configType.set(null)"
+  >
+    <span class="eyebrow">INSTANCE INPUTS · v{{ configVersion()!.version }}</span>
+    <h2>{{ type.name }}</h2>
+    <form (ngSubmit)="apply()">
+      @for (parameter of configVersion()!.parameters; track parameter.name) {
+        <label
+          >{{ parameter.name }}
+          @if (parameter.property === 'visible' || parameter.property === 'enabled') {
+            <select
+              [attr.aria-label]="parameter.name"
+              [(ngModel)]="values[parameter.name]"
+              [ngModelOptions]="{ standalone: true }"
+            >
+              <option [ngValue]="true">True</option>
+              <option [ngValue]="false">False</option>
+            </select>
+          } @else {
+            <input
+              [attr.aria-label]="parameter.name"
+              [type]="
+                parameter.property === 'value'
+                  ? 'number'
+                  : parameter.property === 'color'
+                    ? 'color'
+                    : 'text'
+              "
+              [(ngModel)]="values[parameter.name]"
+              [ngModelOptions]="{ standalone: true }"
+            />
+          }
+        </label>
+      } @empty {
+        <p class="field-hint">This type has no exposed property inputs.</p>
+      }
+      @if (needsEntity(configVersion()!)) {
+        <tx-data-browser [entityOnly]="true" (entitySelected)="assignEntity($event)" />
+        <div class="field-grid">
+          <label
+            >Equipment type<select name="entityType" [(ngModel)]="entityType">
+              <option value="DEVICE">Device</option>
+              <option value="ASSET">Asset</option>
+            </select></label
+          ><label
+            >Equipment entity ID<input
+              name="entityId"
+              aria-label="Component equipment entity ID"
+              [(ngModel)]="entityId"
+              required
+              placeholder="ThingsBoard entity UUID"
+          /></label>
+        </div>
+        <p class="field-hint">
+          The assigned entity supplies all telemetry and attribute inputs. Command actions remain
+          instance-specific.
+        </p>
+      }
+      @if (configInstanceId && type.versions.at(-1)!.version > configVersion()!.version) {
+        <button type="button" class="button secondary" (click)="prepareUpgrade()">
+          Upgrade to v{{ type.versions.at(-1)!.version }}
+        </button>
+      }
+      @if (upgrading) {
+        <p class="info-note">
+          Upgrade replaces the instance layout and behavior from the new type. Named input values
+          and the equipment assignment are retained.
+        </p>
+      }
+      @if (error()) {
+        <p class="inline-error" role="alert">{{ error() }}</p>
+      }
+      <div class="modal-actions">
+        <button type="button" class="button secondary" (click)="configType.set(null)">Cancel</button
+        ><button type="submit" class="button primary">
+          {{ configInstanceId ? 'Apply inputs' : 'Add component' }}
+        </button>
+      </div>
+    </form>
+  </dialog>
+}

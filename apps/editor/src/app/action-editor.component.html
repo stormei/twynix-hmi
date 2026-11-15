@@ -1,0 +1,239 @@
+<div class="section-heading"><span>EVENT ACTIONS</span></div>
+<label
+  >Event<select aria-label="Action event" [ngModel]="event()" (ngModelChange)="event.set($event)">
+    <option value="activate">On activation · click / value change</option>
+    <option value="doubleClick">On double-click</option>
+  </select></label
+>
+<label
+  >Action<select aria-label="Action" [(ngModel)]="draft().type">
+    <option value="none">No action</option>
+    <option value="notify">Show message</option>
+    <option value="navigate">Navigate to screen</option>
+    <option value="command">Device command</option>
+  </select></label
+>
+@if (previewOnly()) {
+  <p class="info-note">
+    Preview-only example. Saved changes and copies retain the equipment-command block.
+  </p>
+}
+@if (draft().type === 'notify') {
+  <label
+    >Message<textarea
+      aria-label="Action message"
+      [(ngModel)]="draft().message"
+      rows="4"
+      maxlength="500"
+    ></textarea>
+  </label>
+}
+@if (draft().type === 'navigate') {
+  <label
+    >Target screen<select [(ngModel)]="draft().screenId">
+      @for (screen of store.project().screens; track screen.id) {
+        <option [value]="screen.id">{{ screen.name }}</option>
+      }
+    </select></label
+  >
+}
+@if (draft().type === 'command') {
+  <details>
+    <summary>Browse command device</summary>
+    <tx-data-browser [entityOnly]="true" (entitySelected)="chooseEntity($event)" />
+  </details>
+  <label
+    >Device ID<input
+      aria-label="Command device ID"
+      [(ngModel)]="draft().deviceId"
+      placeholder="ThingsBoard device UUID"
+  /></label>
+  <label>RPC method<input aria-label="RPC method" [(ngModel)]="draft().method" /></label>
+  <label
+    >Static parameters (JSON object)<textarea
+      aria-label="Static parameters"
+      class="code-input"
+      [(ngModel)]="draft().params"
+      rows="3"
+    ></textarea>
+  </label>
+  <label class="check-field"
+    ><input type="checkbox" aria-label="Map control value" [(ngModel)]="draft().mapValue" />Map the
+    control value into a parameter</label
+  >
+  @if (draft().mapValue) {
+    <div class="field-grid">
+      <label
+        >Parameter name<input
+          aria-label="Command parameter name"
+          [(ngModel)]="draft().parameter" /></label
+      ><label
+        >Value type<select aria-label="Command value type" [(ngModel)]="draft().valueType">
+          <option value="number">Number</option>
+          <option value="boolean">Boolean</option>
+          <option value="string">Text</option>
+        </select></label
+      >
+    </div>
+    @if (draft().valueType === 'number') {
+      <div class="field-grid">
+        <label
+          >Minimum<input
+            aria-label="Command minimum"
+            type="number"
+            [(ngModel)]="draft().minimum" /></label
+        ><label
+          >Maximum<input aria-label="Command maximum" type="number" [(ngModel)]="draft().maximum"
+        /></label>
+      </div>
+      <label
+        >Step (optional)<input
+          aria-label="Command step"
+          type="number"
+          min="0.000001"
+          [(ngModel)]="draft().step"
+      /></label>
+    }
+    <label
+      >Allowed values (JSON array)<input
+        aria-label="Allowed command values"
+        [(ngModel)]="draft().allowed"
+        placeholder="[] means no extra restriction"
+    /></label>
+    <p class="field-hint">
+      Only this top-level parameter receives the requested value. Published slider limits and option
+      lists are also enforced.
+    </p>
+  }
+  <div class="field-grid">
+    <label
+      >Reply timeout (seconds)<input
+        aria-label="Command reply timeout"
+        type="number"
+        min="5"
+        max="60"
+        [(ngModel)]="draft().timeout" /></label
+    ><label
+      >Permitted authority<select aria-label="Command authority" [(ngModel)]="draft().authority">
+        <option value="">Any signed-in owner</option>
+        <option value="TENANT_ADMIN">Tenant administrator</option>
+        <option value="CUSTOMER_USER">Customer user</option>
+      </select></label
+    >
+  </div>
+  <label
+    >Confirmation message<textarea
+      aria-label="Command confirmation message"
+      [(ngModel)]="draft().confirmation"
+      rows="2"
+      maxlength="300"
+    ></textarea>
+  </label>
+  <details>
+    <summary>Device reply validation</summary>
+    <label class="check-field"
+      ><input
+        type="checkbox"
+        aria-label="Check device reply"
+        [(ngModel)]="draft().checkReply"
+      />Require a matching reply field</label
+    >
+    @if (draft().checkReply) {
+      <label
+        >Reply field<input
+          aria-label="Reply success field"
+          [(ngModel)]="draft().replyField" /></label
+      ><label
+        >Expected reply value (JSON)<input
+          aria-label="Expected reply value"
+          [(ngModel)]="draft().replyExpected"
+      /></label>
+    }
+    <p class="field-hint">
+      For example: success = true. Without a rule, accepted means a reply arrived.
+    </p>
+  </details>
+  <details>
+    <summary>Reported-value confirmation</summary>
+    <label class="check-field"
+      ><input
+        type="checkbox"
+        aria-label="Wait for reported value"
+        [(ngModel)]="draft().feedback"
+      />Wait for the widget's reported value</label
+    >
+    @if (draft().feedback) {
+      <div class="field-grid">
+        <label
+          >Readback timeout (seconds)<input
+            aria-label="Readback timeout"
+            type="number"
+            min="1"
+            max="120"
+            [(ngModel)]="draft().feedbackTimeout" /></label
+        ><label
+          >Numeric tolerance<input
+            aria-label="Readback tolerance"
+            type="number"
+            min="0"
+            [(ngModel)]="draft().tolerance"
+        /></label>
+      </div>
+      @if (!draft().mapValue) {
+        <label
+          >Expected reported value (JSON)<input
+            aria-label="Expected reported value"
+            [(ngModel)]="draft().expected"
+        /></label>
+      }
+      <p class="field-hint">
+        Bind Value under Data. A device reply is accepted first; confirmation needs a fresh,
+        good-quality matching value.
+      </p>
+    }
+  </details>
+  <details open>
+    <summary>Preview test</summary>
+    <label
+      >Requested value (JSON)<input aria-label="Preview command value" [(ngModel)]="testValue"
+    /></label>
+    <label
+      >Simulated authority<select aria-label="Preview authority" [(ngModel)]="testAuthority">
+        <option value="TENANT_ADMIN">Tenant administrator</option>
+        <option value="CUSTOMER_USER">Customer user</option>
+      </select></label
+    >
+    <button
+      type="button"
+      class="button secondary full"
+      [disabled]="commands.busy()"
+      (click)="test()"
+    >
+      Test command mapping
+    </button>
+    <p class="field-hint">
+      Tests unsaved command settings locally. No RPC is sent, and activation scripts are not run by
+      this mapping test.
+    </p>
+  </details>
+}
+@if (error()) {
+  <div class="inline-error" role="alert">{{ error() }}</div>
+}
+<p class="event-draft-status">
+  {{
+    dirty()
+      ? 'Unapplied event changes. Choose Save action to apply.'
+      : 'Event settings match the saved draft.'
+  }}
+</p>
+<button type="button" class="button primary full" [disabled]="!dirty()" (click)="save()">
+  Save action
+</button>
+<div class="section-heading divided"><span>BEHAVIOUR</span></div>
+<p class="panel-intro">
+  Use scripts for conditional behaviour. A script can request only this configured action.
+</p>
+<button type="button" class="button secondary full" (click)="openScript.emit()">
+  Open script editor ↗
+</button>

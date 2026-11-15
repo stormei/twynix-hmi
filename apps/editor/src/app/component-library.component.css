@@ -1,0 +1,40 @@
+.panel-intro {
+  padding: 0 14px;
+  margin: 0 0 14px;
+}
+.reusable-component-dialog {
+  width: min(640px, 90vw);
+  max-height: 85vh;
+  overflow: auto;
+}
+.component-input-tree {
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid #d8e3eb;
+  border-radius: 5px;
+  margin: 12px 0;
+}
+summary {
+  padding: 9px 12px;
+  cursor: pointer;
+  color: #304f65;
+  font-weight: 600;
+  font-size: 12px;
+}
+.component-input-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 1fr;
+  gap: 12px;
+  padding: 4px 16px;
+  align-items: center;
+}
+.component-input-row label {
+  margin: 0;
+}
+.library-create {
+  display: grid;
+  gap: 8px;
+}
+.faceplate-card footer {
+  flex-wrap: wrap;
+}

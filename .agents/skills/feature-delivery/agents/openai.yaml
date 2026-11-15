@@ -1,0 +1,3 @@
+interface:
+  display_name: 'Feature Delivery'
+  short_description: 'Deliver scoped HMI changes with regression evidence'

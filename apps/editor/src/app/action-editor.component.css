@@ -1,0 +1,39 @@
+:host {
+  display: block;
+}
+details {
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid #dbe4eb;
+  border-radius: 5px;
+  background: #f8fafc;
+}
+summary {
+  font-size: 12px;
+  font-weight: 600;
+  color: #34566d;
+  cursor: pointer;
+}
+details[open] > summary {
+  margin-bottom: 12px;
+}
+.field-hint {
+  line-height: 1.5;
+}
+.check-field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.check-field input {
+  width: auto;
+}
+label {
+  margin-bottom: 12px;
+}
+.code-input {
+  font: 12px monospace;
+}
+.panel-intro {
+  padding: 0;
+}

@@ -1,0 +1,123 @@
+<section class="data-browser" aria-label="ThingsBoard data browser">
+  <header>
+    <strong>ThingsBoard sources</strong
+    ><button type="button" class="text-button" [disabled]="busy()" (click)="browse()">
+      Refresh
+    </button>
+  </header>
+  @if (!api.user()) {
+    <p class="field-hint">
+      Sign in to browse ThingsBoard. You can still enter an entity ID manually below.
+    </p>
+  }
+  <div class="field-grid">
+    <label
+      >Browse type<select
+        aria-label="Browse entity type"
+        [ngModel]="entityType()"
+        (ngModelChange)="changeType($event)"
+      >
+        <option value="DEVICE">Devices</option>
+        <option value="ASSET">Assets</option>
+      </select></label
+    >
+    <label
+      >Find source<input
+        aria-label="Find ThingsBoard entity"
+        [(ngModel)]="search"
+        placeholder="Device or asset name"
+        (keydown.enter)="$event.preventDefault(); browse()"
+    /></label>
+  </div>
+  <button
+    type="button"
+    class="button secondary small"
+    [disabled]="busy() || !api.user()"
+    (click)="browse()"
+  >
+    {{ busy() ? 'Loading…' : 'Search sources' }}
+  </button>
+  @if (error()) {
+    <p role="alert" class="inline-error">{{ error() }}</p>
+  }
+  <div class="source-tree" aria-label="Available entities">
+    @for (entity of entities(); track entity.id) {
+      <button
+        type="button"
+        class="source-entity"
+        [disabled]="busy()"
+        [class.active]="selected()?.id === entity.id"
+        [attr.aria-expanded]="selected()?.id === entity.id"
+        (click)="select(entity)"
+      >
+        <span>{{ selected()?.id === entity.id ? '▾' : '▸' }}</span> {{ entity.name }}
+      </button>
+      @if (selected()?.id === entity.id && !entityOnly()) {
+        @if (loadingKeys()) {
+          <p role="status">Loading sources…</p>
+        } @else if (catalog()) {
+          <label class="key-filter"
+            >Filter keys<input aria-label="Filter source keys" [(ngModel)]="keyFilter"
+          /></label>
+          @for (branch of branches; track branch.type) {
+            <details open>
+              <summary>
+                {{ branch.label }} <small>{{ rows(branch.type).length }}</small>
+              </summary>
+              @for (row of rows(branch.type); track row.key) {
+                <button
+                  type="button"
+                  class="source-key"
+                  [class.active]="chosen()?.key === row.key && chosen()?.dataType === branch.type"
+                  (click)="choose(row, branch.type)"
+                >
+                  <span>{{ row.key }}</span><small>{{ display(row.value) }}</small>
+                </button>
+              } @empty {
+                <p class="field-hint">No matching keys.</p>
+              }
+            </details>
+          }
+        }
+      }
+    } @empty {
+      @if (searched() && !busy()) {
+        <p class="field-hint">No entities matched. Change the search and try again.</p>
+      }
+    }
+  </div>
+  @if (searched()) {
+    <footer>
+      <button
+        type="button"
+        class="text-button"
+        [disabled]="busy() || page() === 0"
+        (click)="browse(page() - 1)"
+      >
+        Previous</button
+      ><small>Page {{ page() + 1 }}</small
+      ><button
+        type="button"
+        class="text-button"
+        [disabled]="busy() || !hasNext()"
+        (click)="browse(page() + 1)"
+      >
+        Next
+      </button>
+    </footer>
+  }
+  @if (sample(); as row) {
+    <div class="source-sample">
+      <strong>{{ row.key }}</strong><span>{{ display(row.value) }}</span
+      ><small>{{
+        row.timestamp === null ? 'No sample available' : 'Fetched sample · ' + quality(row)
+      }}</small>
+      @if (row.timestamp !== null) {
+        <time>{{ row.timestamp | date: 'medium' }}</time>
+      }
+      <button type="button" class="button primary small" (click)="apply()">
+        Use selected source
+      </button>
+    </div>
+  }
+</section>

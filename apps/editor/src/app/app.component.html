@@ -1,0 +1,2028 @@
+<div class="studio" [class.runtime]="mode() === 'runtime'">
+  <header class="topbar compact-topbar">
+    <a class="brand" href="/" aria-label="Twynix HMI Studio"
+      ><span class="brand-mark" aria-hidden="true">TX</span><strong>Twynix</strong></a
+    >
+    <tx-dropdown [label]="store.project().name">
+      <span class="menu-caption">PROJECT</span>
+      <button role="menuitem" (click)="newProject()" [disabled]="mode() !== 'edit'">
+        New project
+      </button>
+      <button role="menuitem" (click)="openProjects()">Open project…</button>
+      <button role="menuitem" (click)="fileInput.click()" [disabled]="mode() !== 'edit'">
+        Import project…
+      </button>
+      <button role="menuitem" (click)="store.export()">Export project</button>
+      <hr />
+      <button role="menuitem" (click)="publish()" [disabled]="busy() || mode() === 'runtime'">
+        <tx-icon name="publish" />Publish release…
+      </button>
+      <button role="menuitem" (click)="setMode('runtime')">
+        <tx-icon name="runtime" />Open published runtime
+      </button>
+      <hr />
+      <span class="menu-caption"
+        >Revision {{ store.project().revision }} ·
+        {{ store.recoveryTime() ? 'Recovery saved locally' : 'Local workspace' }}</span
+      >
+    </tx-dropdown>
+    <input #fileInput type="file" accept=".json" hidden (change)="importFile($event)" />
+    <span
+      class="draft-indicator"
+      [class.unsaved]="store.dirty()"
+      [title]="store.dirty() ? 'Unsaved draft' : 'Draft ready'"
+    ></span>
+    <div class="history-actions">
+      <button
+        class="icon-button"
+        [title]="'Undo ' + store.undoLabel() + ' (⌘Z)'"
+        aria-label="Undo"
+        [disabled]="!store.canUndo() || mode() !== 'edit'"
+        (click)="store.undo()"
+      >
+        <tx-icon name="undo" />
+      </button>
+      <button
+        class="icon-button"
+        [title]="'Redo ' + store.redoLabel() + ' (⇧⌘Z)'"
+        aria-label="Redo"
+        [disabled]="!store.canRedo() || mode() !== 'edit'"
+        (click)="store.redo()"
+      >
+        <tx-icon name="redo" />
+      </button>
+    </div>
+    <div class="top-spacer"></div>
+    <nav class="primary-navigation" aria-label="Workspace mode">
+      <button
+        [class.active]="mode() === 'edit'"
+        [attr.aria-current]="mode() === 'edit' ? 'page' : null"
+        (click)="setMode('edit')"
+      >
+        <tx-icon name="edit" />Design
+      </button>
+      <button
+        [class.active]="mode() === 'preview'"
+        [attr.aria-current]="mode() === 'preview' ? 'page' : null"
+        (click)="setMode('preview')"
+      >
+        <tx-icon name="preview" />Preview
+      </button>
+    </nav>
+    <button
+      class="button primary small save-draft-button"
+      [disabled]="busy() || mode() === 'runtime'"
+      (click)="save()"
+    >
+      {{ busy() ? 'Working…' : 'Save draft' }}
+    </button>
+    <tx-dropdown label="Account & connection" icon="settings" [iconOnly]="true" [alignEnd]="true">
+      <span class="menu-caption">{{ api.user()?.email || 'Local designer' }}</span>
+      <span class="menu-caption">{{
+        dataSource() === 'live' ? 'ThingsBoard 4.4 · Live data' : 'Simulation workspace'
+      }}</span>
+      <button role="menuitem" (click)="api.user() ? logout() : loginOpen.set(true)">
+        {{ api.user() ? 'Sign out' : 'Connect ThingsBoard' }} ↗
+      </button>
+      <hr />
+      <button role="menuitem" (click)="shortcutsOpen.set(true)">
+        <tx-icon name="help" />Keyboard shortcuts
+      </button>
+    </tx-dropdown>
+  </header>
+
+  <div class="workspace">
+    @if (mode() !== 'runtime' && leftOpen()) {
+      <aside class="left-panel" [style.width.px]="leftWidth()" [style.min-width.px]="leftWidth()">
+        <div class="panel-tabs">
+          <button [class.active]="leftTab() === 'screens'" (click)="leftTab.set('screens')">
+            Project</button
+          ><button [class.active]="leftTab() === 'symbols'" (click)="leftTab.set('symbols')">
+            Symbols</button
+          ><button [class.active]="leftTab() === 'faceplates'" (click)="leftTab.set('faceplates')">
+            Faceplates
+          </button>
+        </div>
+        @if (leftTab() === 'screens') {
+          <div class="section-heading">
+            <span>SCREENS</span
+            ><button
+              class="add-button"
+              title="Add screen"
+              aria-label="Add screen"
+              (click)="screenDialog.set('new')"
+              [disabled]="mode() !== 'edit'"
+            >
+              +
+            </button>
+          </div>
+          <div class="screen-list">
+            @for (screen of store.project().screens; track screen.id) {
+              <button
+                [class.selected]="displayScreen().id === screen.id"
+                (click)="switchScreen(screen.id)"
+              >
+                <tx-icon class="screen-icon" name="screen" /><span>{{ screen.name }}</span
+                ><span class="count">{{ screen.widgets.length }}</span>
+              </button>
+            }
+          </div>
+          <div class="section-heading layer-heading">
+            <span
+              >LAYERS <em>{{ store.screen().widgets.length }}</em></span
+            ><span class="muted">◇</span>
+          </div>
+          <div class="layer-search">
+            <tx-icon name="search" /><input
+              aria-label="Find a layer"
+              placeholder="Find a layer…"
+              [ngModel]="layerSearch()"
+              (ngModelChange)="layerSearch.set($event)"
+            />
+          </div>
+          <div
+            class="layer-list"
+            role="tree"
+            aria-label="Screen layers"
+            aria-multiselectable="true"
+          >
+            @for (entry of layerEntries(); track entry.id) {
+              @if (entry.grouped) {
+                <div class="layer-group">
+                  <div class="layer-group-heading">
+                    <button
+                      class="group-expander"
+                      [attr.aria-label]="
+                        (collapsedGroups().includes(entry.id) ? 'Expand ' : 'Collapse ') +
+                        entry.name
+                      "
+                      (click)="toggleGroup(entry.id)"
+                    >
+                      <tx-icon
+                        [name]="collapsedGroups().includes(entry.id) ? 'chevron-right' : 'chevron'"
+                      /></button
+                    ><button
+                      class="group-name"
+                      [class.selected]="groupSelected(entry.widgets)"
+                      (click)="selectGroup(groupIds(entry.widgets), $event)"
+                    >
+                      <tx-icon name="group" /><span>{{ entry.name }}</span
+                      ><small>{{ entry.widgets.length }}</small>
+                    </button>
+                  </div>
+                  @if (!collapsedGroups().includes(entry.id) || layerSearch()) {
+                    <div class="group-children" role="group">
+                      @for (widget of entry.widgets; track widget.id) {
+                        <tx-layer-row
+                          [widget]="widget"
+                          [selected]="store.selectedIds().includes(widget.id)"
+                          (chosen)="select(widget, $event)"
+                          (visibility)="store.toggleVisible(widget.id)"
+                          (lock)="store.toggleLocked(widget.id)"
+                          (menu)="openContext($event, widget)"
+                        />
+                      }
+                    </div>
+                  }
+                </div>
+              } @else {
+                @for (widget of entry.widgets; track widget.id) {
+                  <tx-layer-row
+                    [widget]="widget"
+                    [selected]="store.selectedIds().includes(widget.id)"
+                    (chosen)="select(widget, $event)"
+                    (visibility)="store.toggleVisible(widget.id)"
+                    (lock)="store.toggleLocked(widget.id)"
+                    (menu)="openContext($event, widget)"
+                  />
+                }
+              }
+            } @empty {
+              <p class="panel-intro layer-empty">
+                {{
+                  layerSearch()
+                    ? 'No matching layers.'
+                    : 'Add a component from Symbols or Faceplates.'
+                }}
+              </p>
+            }
+          </div>
+          @if (store.selected()) {
+            <div class="layer-controls">
+              <button
+                title="Move layer backward"
+                (click)="store.reorder(-1)"
+                [disabled]="mode() !== 'edit'"
+              >
+                ↓ Back</button
+              ><button
+                title="Move layer forward"
+                (click)="store.reorder(1)"
+                [disabled]="mode() !== 'edit'"
+              >
+                ↑ Front
+              </button>
+            </div>
+          }
+        } @else if (leftTab() === 'symbols') {
+          @defer (on immediate) {
+            <tx-symbol-library
+              [(query)]="symbolSearch"
+              [(expanded)]="expandedSymbolCategories"
+              [labels]="descriptions"
+              [visualStyle]="visualStyle()"
+              [editable]="mode() === 'edit'"
+              (chosen)="store.add($event)"
+              (instrumentChosen)="store.addInstrument($event)"
+              (exampleRequested)="addDashboardExample()"
+              (commandExampleRequested)="addCommandExample()"
+              (dragStarted)="paletteDrag($event.event, $event.kind)"
+            />
+          }
+        } @else {
+          @if (mode() === 'edit') {
+            @defer (on immediate) {
+              <tx-component-library />
+            }
+          }
+          <div class="section-heading">
+            <span>EQUIPMENT FACEPLATES</span
+            ><span class="count">{{ store.project().faceplates.length }}</span>
+          </div>
+          <p class="panel-intro">
+            Versioned equipment types. Click Add or drag an instance onto the canvas.
+          </p>
+          <div class="faceplate-library">
+            @for (type of store.project().faceplates; track type.id) {
+              <article
+                class="faceplate-card"
+                [draggable]="mode() === 'edit'"
+                (dragstart)="paletteDrag($event, type.id, true)"
+              >
+                <header>
+                  <span class="faceplate-kind"><tx-icon [name]="type.kind" /></span>
+                  <div>
+                    <b>{{ type.name }}</b><small
+                      >v{{ type.versions.at(-1)!.version }} · {{ type.telemetryKey }}</small
+                    >
+                  </div>
+                </header>
+                <p>{{ type.description }}</p>
+                <footer>
+                  <button
+                    class="button secondary small"
+                    [disabled]="mode() !== 'edit'"
+                    (click)="editFaceplate(type)"
+                  >
+                    Edit type</button
+                  ><button
+                    class="button primary small"
+                    [disabled]="mode() !== 'edit'"
+                    (click)="store.addFaceplate(type.id)"
+                  >
+                    <tx-icon name="add" />Add
+                  </button>
+                </footer>
+              </article>
+            }
+          </div>
+          <div class="library-create">
+            <button
+              class="button secondary full"
+              [disabled]="mode() !== 'edit' || !canCreateFaceplate()"
+              (click)="editFaceplate()"
+            >
+              Create type from selection
+            </button>
+            <p class="field-hint">Select one pump, valve or tank to create a reusable type.</p>
+          </div>
+        }
+      </aside>
+      <div
+        class="pane-splitter vertical"
+        role="separator"
+        tabindex="0"
+        aria-label="Resize project panel"
+        aria-orientation="vertical"
+        aria-valuemin="200"
+        aria-valuemax="400"
+        [attr.aria-valuenow]="leftWidth()"
+        (pointerdown)="resizePane($event, 'left')"
+        (keydown)="paneKey($event, 'left')"
+      ></div>
+    }
+
+    <main class="main-panel">
+      <div class="canvas-toolbar compact-canvas-toolbar">
+        <div class="breadcrumbs">
+          <b [title]="displayScreen().name">{{ displayScreen().name }}</b>
+          @if (mode() !== 'edit') {
+            <span class="draft-tag">{{ mode() === 'preview' ? 'PREVIEW' : 'PUBLISHED' }}</span>
+          }
+        </div>
+        @if (commandExampleControls().length) {
+          <button type="button" (click)="resetCommandExample()">Reset example</button>
+        }
+        @if (mode() === 'edit') {
+          <div
+            class="screen-edit-tools"
+            role="toolbar"
+            aria-label="Drawing tools"
+            (pointerdown)="$event.stopPropagation()"
+          >
+            <button
+              class="tool-button"
+              aria-label="Selection tool"
+              title="Select (V)"
+              [class.active]="tool() === 'select'"
+              [attr.aria-pressed]="tool() === 'select'"
+              (click)="tool.set('select')"
+            >
+              <tx-icon name="cursor" />
+            </button>
+            <button
+              class="tool-button"
+              aria-label="Hand tool"
+              title="Pan (H) · Hold Space"
+              [class.active]="tool() === 'hand'"
+              [attr.aria-pressed]="tool() === 'hand'"
+              (click)="tool.set('hand')"
+            >
+              <tx-icon name="hand" />
+            </button>
+            <span class="dock-divider"></span>
+            <tx-dropdown
+              label="Connect"
+              [hint]="'Connect: ' + activeConnectionLabel()"
+              [class.connection-tool-active]="connectionMedium() !== 'process'"
+              [iconOnly]="true"
+              [icon]="connectionMedium() === 'process' ? 'pipe' : 'binding'"
+            >
+              <span class="menu-caption">CONNECTION TOOL</span>
+              <button
+                role="menuitemradio"
+                [attr.aria-checked]="connectionMedium() === 'process'"
+                (click)="chooseConnectionMedium('process')"
+              >
+                Process piping
+                <span class="menu-check">{{ connectionMedium() === 'process' ? '✓' : '' }}</span>
+              </button>
+              @for (medium of signalMedia; track medium) {
+                <button
+                  role="menuitemradio"
+                  [attr.aria-checked]="connectionMedium() === medium"
+                  (click)="chooseConnectionMedium(medium)"
+                >
+                  {{ signalStyles[medium].label
+                  }}<span class="menu-check">{{ connectionMedium() === medium ? '✓' : '' }}</span>
+                </button>
+              }
+              <hr />
+              <span class="menu-caption">{{
+                connectionMedium() === 'process'
+                  ? 'Drag objects near a free port to snap.'
+                  : 'Drag an output to a highlighted input.'
+              }}</span>
+            </tx-dropdown>
+            <span class="dock-divider"></span>
+            <button
+              class="tool-button"
+              aria-label="Duplicate selection"
+              title="Duplicate (⌘D)"
+              [disabled]="!store.selected()"
+              (click)="store.duplicate()"
+            >
+              <tx-icon name="copy" />
+            </button>
+            <span class="dock-divider"></span>
+            <button
+              class="tool-button"
+              aria-label="Bring to front"
+              title="Bring to front"
+              [disabled]="!store.canTransform()"
+              (click)="store.reorder(2)"
+            >
+              <tx-icon name="front" />
+            </button>
+            <button
+              class="tool-button"
+              aria-label="Bring to back"
+              title="Bring to back"
+              [disabled]="!store.canTransform()"
+              (click)="store.reorder(-2)"
+            >
+              <tx-icon name="back" />
+            </button>
+            <button
+              class="tool-button"
+              aria-label="Rotate counterclockwise"
+              title="Rotate 5° counterclockwise"
+              [disabled]="!store.canTransform()"
+              (click)="rotateObjects(false)"
+            >
+              <tx-icon name="rotate-left" />
+            </button>
+            <button
+              class="tool-button"
+              aria-label="Rotate clockwise"
+              title="Rotate 5° clockwise"
+              [disabled]="!store.canTransform()"
+              (click)="rotateObjects(true)"
+            >
+              <tx-icon name="rotate-right" />
+            </button>
+            <tx-selection-tools [editable]="true" />
+            <span class="dock-divider"></span>
+            <button
+              class="tool-button"
+              aria-label="Show grid"
+              title="Show grid"
+              [class.active]="grid()"
+              [attr.aria-pressed]="grid()"
+              (click)="grid.set(!grid())"
+            >
+              <tx-icon name="grid" />
+            </button>
+            <button
+              class="tool-button"
+              aria-label="Snap to grid"
+              title="Snap to grid"
+              [class.active]="snap()"
+              [attr.aria-pressed]="snap()"
+              (click)="snap.set(!snap())"
+            >
+              <tx-icon name="snap" />
+            </button>
+          </div>
+        }
+        <div class="screen-header-actions">
+          @if (!rightOpen() && (store.selected() || selectedRoute())) {
+            <button
+              class="tool-button"
+              aria-label="Properties"
+              title="Properties"
+              (click)="rightOpen.set(true)"
+            >
+              <tx-icon name="panel-right" />
+            </button>
+          }
+          @if (!leftOpen()) {
+            <button
+              class="tool-button"
+              aria-label="Open project panel"
+              title="Project & library"
+              (click)="leftOpen.set(true)"
+            >
+              <tx-icon name="panel-left" />
+            </button>
+          }
+          <tx-dropdown label="View" icon="settings" [iconOnly]="true" [alignEnd]="true">
+            <span class="menu-caption">PANELS</span>
+            <button
+              role="menuitemcheckbox"
+              [attr.aria-checked]="leftOpen()"
+              (click)="leftOpen.set(!leftOpen())"
+            >
+              <tx-icon name="panel-left" />Project & library
+              <span class="menu-check">{{ leftOpen() ? '✓' : '' }}</span>
+            </button>
+            <button
+              role="menuitemcheckbox"
+              [attr.aria-checked]="rightOpen()"
+              (click)="rightOpen.set(!rightOpen())"
+            >
+              <tx-icon name="panel-right" />Inspector
+              <span class="menu-check">{{ rightOpen() ? '✓' : '' }}</span>
+            </button>
+            <button
+              role="menuitemcheckbox"
+              [attr.aria-checked]="bottomOpen()"
+              (click)="bottomOpen.set(!bottomOpen())"
+            >
+              <tx-icon name="panel-bottom" />Diagnostics
+              <span class="menu-check">{{ bottomOpen() ? '✓' : '' }}</span>
+            </button>
+            <hr />
+            <span class="menu-caption">CANVAS</span>
+            <button
+              role="menuitemcheckbox"
+              [attr.aria-checked]="grid()"
+              (click)="grid.set(!grid())"
+            >
+              Show grid <span class="menu-check">{{ grid() ? '✓' : '' }}</span>
+            </button>
+            <button
+              role="menuitemcheckbox"
+              [attr.aria-checked]="snap()"
+              (click)="snap.set(!snap())"
+            >
+              Snap to grid <span class="menu-check">{{ snap() ? '✓' : '' }}</span>
+            </button>
+            <button
+              role="menuitemcheckbox"
+              [attr.aria-checked]="portSnap()"
+              (click)="portSnap.set(!portSnap()); pendingPort.set(null)"
+            >
+              Show connection ports <span class="menu-check">{{ portSnap() ? '✓' : '' }}</span>
+            </button>
+            <button
+              role="menuitem"
+              (click)="fitSelection()"
+              [disabled]="!store.selected() && !selectedRoute()"
+            >
+              Fit selection <kbd>⇧2</kbd>
+            </button>
+            <hr />
+            <span class="menu-caption">GRAPHICS STYLE</span>
+            @for (style of graphicsStyles; track style.value) {
+              <button
+                role="menuitemradio"
+                [attr.aria-checked]="visualStyle() === style.value"
+                [disabled]="mode() !== 'edit'"
+                (click)="store.setSymbolStyle(style.value)"
+              >
+                {{ style.label
+                }}<span class="menu-check">{{ visualStyle() === style.value ? '✓' : '' }}</span>
+              </button>
+            }
+            <hr />
+            <button role="menuitem" (click)="shortcutsOpen.set(true)">
+              Keyboard shortcuts <kbd>?</kbd>
+            </button>
+          </tx-dropdown>
+        </div>
+      </div>
+      <div
+        class="canvas-area"
+        tabindex="0"
+        aria-label="Screen canvas"
+        #canvasArea
+        [class.hand-tool]="tool() === 'hand'"
+        [class.no-grid]="!grid()"
+        (pointerdown)="backgroundDown($event)"
+        (wheel)="wheel($event)"
+        (contextmenu)="openContext($event)"
+        (dragover)="allowDrop($event)"
+        (drop)="drop($event)"
+      >
+        @if (mode() === 'edit') {
+          @defer (on immediate) {
+            <tx-rulers [screen]="displayScreen()" [zoom]="zoom()" [pan]="pan()" />
+          }
+        }
+        <div
+          class="canvas-zoom-dock"
+          role="toolbar"
+          aria-label="Canvas zoom"
+          (pointerdown)="$event.stopPropagation()"
+        >
+          <button aria-label="Zoom out" title="Zoom out" (click)="setZoom(-0.1)">−</button>
+          <button aria-label="Reset zoom" title="Reset zoom to 100%" (click)="setZoomTo(1)">
+            {{ zoom() * 100 | number: '1.0-0' }}%
+          </button>
+          <button aria-label="Zoom in" title="Zoom in" (click)="setZoom(0.1)">+</button>
+          <span class="dock-divider"></span
+          ><button aria-label="Fit screen" title="Fit screen (⇧1)" (click)="fit(canvasArea)">
+            <tx-icon name="fit" />
+          </button>
+        </div>
+        <div
+          class="canvas-frame"
+          [style.transform]="
+            'translate(calc(-50% + ' + pan().x + 'px), calc(-50% + ' + pan().y + 'px))'
+          "
+          [style.width.px]="displayScreen().width * zoom()"
+          [style.height.px]="displayScreen().height * zoom()"
+        >
+          @if (mode() === 'edit') {
+            <div class="artboard-label">
+              {{ displayScreen().name }}
+              <span>{{ displayScreen().width }} × {{ displayScreen().height }} px</span>
+            </div>
+          }
+          <div
+            class="screen-canvas"
+            [style.width.px]="displayScreen().width"
+            [style.height.px]="displayScreen().height"
+            [style.transform]="'scale(' + zoom() + ')'"
+            [class.edit-mode]="mode() === 'edit'"
+            [class.high-performance]="visualStyle() === 'high-performance'"
+            [class.isa-diagram]="visualStyle() === 'isa'"
+          >
+            <div class="screen-content" [class.show-screen-grid]="mode() === 'edit' && grid()">
+              <svg
+                class="connections"
+                [style.height.px]="displayScreen().height"
+                [attr.viewBox]="'0 0 ' + displayScreen().width + ' ' + displayScreen().height"
+                aria-hidden="true"
+              >
+                <defs>
+                  <marker
+                    id="tx-signal-arrow"
+                    viewBox="0 0 8 8"
+                    refX="8"
+                    refY="4"
+                    markerWidth="7"
+                    markerHeight="7"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M0 0 L8 4 L0 8" fill="none" stroke="#53606a" stroke-width="1.4" />
+                  </marker>
+                </defs>
+                @for (route of routedConnections(); track route.link.id) {
+                  @for (bridge of route.bridgePaths; track $index) {
+                    <path
+                      [attr.d]="bridge"
+                      fill="none"
+                      [attr.stroke]="screenBackground()"
+                      stroke-width="16"
+                      stroke-linecap="round"
+                    />
+                  }
+                  <path
+                    [attr.d]="route.path"
+                    fill="none"
+                    [attr.stroke]="
+                      route.blocked
+                        ? '#c38221'
+                        : selectedRouteId() === route.link.id
+                          ? '#2676ad'
+                          : visualStyle() === 'industrial'
+                            ? '#b7c7c8'
+                            : '#53606a'
+                    "
+                    [attr.stroke-dasharray]="
+                      route.blocked ? '4 3' : (route.signalStyle?.dash ?? null)
+                    "
+                    [attr.marker-end]="route.signalStyle ? 'url(#tx-signal-arrow)' : null"
+                    [attr.stroke-width]="
+                      route.signalStyle ? 1.8 : visualStyle() === 'industrial' ? 10 : 2.5
+                    "
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    [attr.d]="route.path"
+                    fill="none"
+                    stroke="#dce6e5"
+                    [attr.stroke-width]="
+                      !route.signalStyle && visualStyle() === 'industrial' ? 3 : 0
+                    "
+                    stroke-linejoin="round"
+                  />
+                  @for (mark of route.signalMarks.slashes; track $index) {
+                    <path
+                      [attr.d]="mark"
+                      fill="none"
+                      [attr.stroke]="route.blocked ? '#c38221' : '#53606a'"
+                      stroke-width="1.8"
+                    />
+                  }
+                  @for (mark of route.signalMarks.circles; track $index) {
+                    <circle
+                      [attr.cx]="mark.x"
+                      [attr.cy]="mark.y"
+                      r="3.5"
+                      [attr.fill]="screenBackground()"
+                      [attr.stroke]="route.blocked ? '#c38221' : '#53606a'"
+                      stroke-width="1.5"
+                    />
+                  }
+                }
+              </svg>
+              @for (widget of canvasWidgets(); track widget.id) {
+                <div
+                  class="canvas-widget"
+                  [class.dashboard-interactive]="mode() !== 'edit' && isDashboardKind(widget.kind)"
+                  [class.drag-source]="
+                    dragGhosts().length > 0 && store.selectedIds().includes(widget.id)
+                  "
+                  [class.widget-selected]="
+                    mode() === 'edit' && store.selectedIds().includes(widget.id)
+                  "
+                  [style.display]="mode() !== 'edit' && !widgetVisible(widget) ? 'none' : null"
+                  [class.binding-hidden]="mode() === 'edit' && !widgetVisible(widget)"
+                  [class.binding-disabled]="mode() !== 'edit' && !widgetEnabled(widget)"
+                  [attr.aria-disabled]="mode() !== 'edit' && !widgetEnabled(widget)"
+                  [class.interactive]="mode() !== 'edit' && isInteractive(widget)"
+                  [style.left.px]="widget.x"
+                  [style.top.px]="widget.y"
+                  [style.width.px]="widget.width"
+                  [style.height.px]="widget.height"
+                  (pointerdown)="pointerDown($event, widget)"
+                  (click)="$event.stopPropagation(); clickWidget(widget)"
+                  (dblclick)="$event.stopPropagation(); doubleClickWidget(widget)"
+                  (contextmenu)="openContext($event, widget)"
+                  (keydown.space)="$event.preventDefault(); activate(widget)"
+                  (keydown.enter)="activate(widget)"
+                  [attr.tabindex]="
+                    mode() !== 'edit' &&
+                    widgetEnabled(widget) &&
+                    widgetVisible(widget) &&
+                    isInteractive(widget)
+                      ? 0
+                      : -1
+                  "
+                  [attr.role]="isInteractive(widget) ? 'button' : 'img'"
+                  [attr.aria-label]="widget.name"
+                  [attr.data-widget-id]="widget.id"
+                >
+                  <div
+                    class="widget-content"
+                    [style.width.px]="widgetContentSize(widget).width"
+                    [style.height.px]="widgetContentSize(widget).height"
+                    [style.transform]="'translate(-50%, -50%) rotate(' + widget.rotation + 'deg)'"
+                  >
+                    @if (isDashboardKind(widget.kind)) {
+                      @defer (on immediate) {
+                        <tx-dashboard-widget
+                          [widget]="widget"
+                          [value]="controlDisplayValue(widget)"
+                          [quality]="controlQuality(widget)"
+                          [color]="widgetColor(widget)"
+                          [text]="widgetText(widget)"
+                          [unit]="widgetUnit(widget)"
+                          [samples]="samples(widget)"
+                          [interactive]="mode() !== 'edit'"
+                          [enabled]="widgetEnabled(widget) && !commands.busy()"
+                          (changed)="controlInput(widget, $event)"
+                        />
+                      }
+                    } @else {
+                      <svg
+                        twynixSymbol
+                        [visualStyle]="visualStyle()"
+                        [widget]="widget"
+                        [value]="value(widget)"
+                        [quality]="quality(widget)"
+                        [color]="widgetColor(widget)"
+                        [text]="widgetText(widget)"
+                        [unit]="widgetUnit(widget)"
+                        [samples]="samples(widget)"
+                      ></svg>
+                    }
+                  </div>
+                </div>
+              }
+              @if (mode() === 'edit') {
+                <svg
+                  class="route-edit-layer"
+                  role="group"
+                  aria-label="Connection route editor"
+                  [style.height.px]="displayScreen().height"
+                  [attr.viewBox]="'0 0 ' + displayScreen().width + ' ' + displayScreen().height"
+                >
+                  @for (route of routedConnections(); track route.link.id) {
+                    <path
+                      class="route-hit-target"
+                      [attr.d]="route.path"
+                      fill="none"
+                      stroke="transparent"
+                      [attr.stroke-width]="14 / zoom()"
+                      role="button"
+                      tabindex="0"
+                      [attr.aria-label]="
+                        (route.signalStyle ? 'Edit signal connection ' : 'Edit pipe connection ') +
+                        ($index + 1)
+                      "
+                      (pointerdown)="selectRoute($event, route.link.id)"
+                      (click)="$event.stopPropagation()"
+                      (keydown.enter)="selectRoute($event, route.link.id)"
+                      (keydown.space)="selectRoute($event, route.link.id)"
+                    />
+                  }
+                  @if (selectedRoute()) {
+                    @for (handle of routeHandles(); track $index) {
+                      <circle
+                        class="route-bend-handle"
+                        [attr.data-pin-index]="handle.insert ? null : handle.index"
+                        [class.bend-pinned]="!handle.insert"
+                        [attr.cx]="handle.point.x"
+                        [attr.cy]="handle.point.y"
+                        [attr.r]="5 / zoom()"
+                        [attr.stroke-width]="1.5 / zoom()"
+                        role="button"
+                        tabindex="0"
+                        [attr.aria-label]="handle.label"
+                        (pointerdown)="routeHandleDown($event, handle)"
+                        (click)="$event.stopPropagation()"
+                        (keydown)="routeHandleKey($event, handle)"
+                      />
+                    }
+                  }
+                </svg>
+              }
+              @for (ghost of dragGhosts(); track ghost.id) {
+                <div
+                  class="canvas-widget drag-ghost"
+                  aria-hidden="true"
+                  [style.left.px]="ghost.x"
+                  [style.top.px]="ghost.y"
+                  [style.width.px]="ghost.width"
+                  [style.height.px]="ghost.height"
+                >
+                  <div
+                    class="widget-content"
+                    [style.width.px]="widgetContentSize(ghost).width"
+                    [style.height.px]="widgetContentSize(ghost).height"
+                    [style.transform]="'translate(-50%, -50%) rotate(' + ghost.rotation + 'deg)'"
+                  >
+                    @if (isDashboardKind(ghost.kind)) {
+                      @defer (on immediate) {
+                        <tx-dashboard-widget
+                          [widget]="ghost"
+                          [value]="value(ghost)"
+                          [quality]="quality(ghost)"
+                          [color]="widgetColor(ghost)"
+                          [text]="widgetText(ghost)"
+                          [unit]="widgetUnit(ghost)"
+                          [samples]="samples(ghost)"
+                          [interactive]="mode() !== 'edit'"
+                        />
+                      }
+                    } @else {
+                      <svg
+                        twynixSymbol
+                        [visualStyle]="visualStyle()"
+                        [widget]="ghost"
+                        [value]="value(ghost)"
+                        [quality]="quality(ghost)"
+                        [color]="widgetColor(ghost)"
+                        [text]="widgetText(ghost)"
+                        [unit]="widgetUnit(ghost)"
+                        [samples]="samples(ghost)"
+                      ></svg>
+                    }
+                  </div>
+                </div>
+              }
+              @if (dragGhosts().length) {
+                <svg
+                  class="smart-guide-overlay"
+                  [attr.viewBox]="'0 0 ' + displayScreen().width + ' ' + displayScreen().height"
+                  aria-hidden="true"
+                >
+                  @for (guide of alignmentGuides(); track $index) {
+                    <line
+                      [attr.x1]="guide.axis === 'x' ? guide.position : guide.start"
+                      [attr.y1]="guide.axis === 'y' ? guide.position : guide.start"
+                      [attr.x2]="guide.axis === 'x' ? guide.position : guide.end"
+                      [attr.y2]="guide.axis === 'y' ? guide.position : guide.end"
+                    />
+                  }
+                  @for (gap of spacingHints(); track $index) {
+                    <line
+                      class="spacing-line"
+                      [class.equal-spacing]="gap.equal"
+                      [attr.x1]="gap.x1"
+                      [attr.y1]="gap.y1"
+                      [attr.x2]="gap.x2"
+                      [attr.y2]="gap.y2"
+                    />
+                    <g
+                      [class.equal-spacing]="gap.equal"
+                      [attr.transform]="
+                        'translate(' +
+                        (gap.x1 + gap.x2) / 2 +
+                        ',' +
+                        (gap.y1 + gap.y2) / 2 +
+                        ') scale(' +
+                        1 / zoom() +
+                        ')'
+                      "
+                    >
+                      <rect x="-21" y="-9" width="42" height="18" rx="3" />
+                      <text text-anchor="middle" dominant-baseline="central">
+                        {{ gap.distance | number: '1.0-1' }}
+                      </text>
+                    </g>
+                  }
+                </svg>
+              }
+              @if (signalDragPreview(); as preview) {
+                <svg
+                  class="signal-drag-preview"
+                  [style.height.px]="displayScreen().height"
+                  [attr.viewBox]="'0 0 ' + displayScreen().width + ' ' + displayScreen().height"
+                  aria-hidden="true"
+                >
+                  <path
+                    [attr.d]="preview.path"
+                    fill="none"
+                    [attr.stroke]="preview.blocked ? '#ad6b00' : '#2676ad'"
+                    stroke-width="2"
+                    [attr.stroke-dasharray]="preview.style.dash"
+                    marker-end="url(#tx-signal-arrow)"
+                  />
+                  @for (mark of preview.marks.slashes; track $index) {
+                    <path [attr.d]="mark" fill="none" stroke="#2676ad" stroke-width="1.8" />
+                  }
+                  @for (mark of preview.marks.circles; track $index) {
+                    <circle
+                      [attr.cx]="mark.x"
+                      [attr.cy]="mark.y"
+                      r="3.5"
+                      [attr.fill]="screenBackground()"
+                      stroke="#2676ad"
+                      stroke-width="1.5"
+                    />
+                  }
+                </svg>
+              }
+              @if (mode() === 'edit' && portSnap()) {
+                @for (port of renderedPorts(); track portKey(port)) {
+                  <button
+                    class="process-port"
+                    [class.signal-port]="connectionMedium() !== 'process'"
+                    [class.port-occupied]="occupiedPortKeys().has(portKey(port))"
+                    [class.port-compatible]="signalDrag() && signalTargetKeys().has(portKey(port))"
+                    [class.port-target]="
+                      signalDrag()?.target && portKey(signalDrag()!.target!) === portKey(port)
+                    "
+                    [class.port-source]="
+                      signalDrag() && portKey(signalDrag()!.source) === portKey(port)
+                    "
+                    [class.port-incompatible]="
+                      signalDrag() &&
+                      !signalTargetKeys().has(portKey(port)) &&
+                      portKey(signalDrag()!.source) !== portKey(port)
+                    "
+                    [class.port-pending]="
+                      pendingPort() && portKey(pendingPort()!) === portKey(port)
+                    "
+                    [class.port-snapped]="
+                      snappedPorts() && portKey(snappedPorts()!.to) === portKey(port)
+                    "
+                    [style.left.px]="port.x"
+                    [style.top.px]="port.y"
+                    [style.width.px]="12 / zoom()"
+                    [style.height.px]="12 / zoom()"
+                    [attr.aria-label]="port.name + ' port'"
+                    [attr.aria-disabled]="occupiedPortKeys().has(portKey(port))"
+                    [attr.title]="
+                      port.port +
+                      (occupiedPortKeys().has(portKey(port))
+                        ? ' · connected'
+                        : ' · click two free ports to connect')
+                    "
+                    (pointerdown)="portDown($event, port)"
+                    (click)="$event.stopPropagation()"
+                    (keydown.enter)="portDown($event, port)"
+                    (keydown.space)="portDown($event, port)"
+                  ></button>
+                }
+              }
+              @if (mode() === 'edit') {
+                @if (selectionOutline(); as bounds) {
+                  <div
+                    class="selection-outline"
+                    [style.transform]="'rotate(' + bounds.rotation + 'deg)'"
+                    [style.transform-origin]="'center'"
+                    [class.selection-locked]="!store.canTransform()"
+                    [style.left.px]="bounds.x"
+                    [style.top.px]="bounds.y"
+                    [style.width.px]="bounds.width"
+                    [style.height.px]="bounds.height"
+                  >
+                    <span class="selection-dimensions"
+                      >{{ bounds.width | number: '1.0-1' }} × {{ bounds.height | number: '1.0-1'
+                      }}{{
+                        store.selectedWidgets().length > 1
+                          ? ' · ' + store.selectedWidgets().length + ' selected'
+                          : ''
+                      }}</span
+                    >
+                    @if (store.canTransform() && !dragGhosts().length) {
+                      @defer (on immediate) {
+                        <tx-rotation-handle
+                          [zoom]="zoom()"
+                          [bounds]="bounds"
+                          (previewed)="rotationPreview.set($event)"
+                        />
+                      }
+
+                      @for (handle of handles; track handle) {
+                        <button
+                          class="selection-handle"
+                          tabindex="-1"
+                          [class]="'selection-handle handle-' + handle"
+                          [style.width.px]="10 / zoom()"
+                          [style.height.px]="10 / zoom()"
+                          [attr.aria-label]="'Resize selection ' + handle"
+                          [style.cursor]="resizeCursor(handle, bounds.rotation)"
+                          (pointerdown)="resizeDown($event, handle)"
+                          (click)="$event.stopPropagation()"
+                        ></button>
+                      }
+                    }
+                  </div>
+                }
+                @if (marquee(); as box) {
+                  <div
+                    class="selection-marquee"
+                    [style.left.px]="box.x"
+                    [style.top.px]="box.y"
+                    [style.width.px]="box.width"
+                    [style.height.px]="box.height"
+                  ></div>
+                }
+              }
+            </div>
+          </div>
+        </div>
+        @if (displayScreen().widgets.length === 0) {
+          <div class="empty-canvas">
+            <span>＋</span>
+            <h3>No components on this screen</h3>
+            <p>Open Symbols and add your first component.</p>
+            <button class="button secondary" (click)="leftTab.set('symbols')">
+              Browse symbols
+            </button>
+          </div>
+        }
+      </div>
+      @if (bottomOpen()) {
+        <div
+          class="pane-splitter horizontal"
+          role="separator"
+          tabindex="0"
+          aria-label="Resize diagnostics"
+          aria-orientation="horizontal"
+          aria-valuemin="100"
+          aria-valuemax="350"
+          [attr.aria-valuenow]="bottomHeight()"
+          (pointerdown)="resizePane($event, 'bottom')"
+          (keydown)="paneKey($event, 'bottom')"
+        ></div>
+        <section
+          class="bottom-panel"
+          [style.height.px]="bottomHeight()"
+          [style.max-height.px]="bottomHeight()"
+        >
+          <div class="bottom-tabs">
+            <button [class.active]="bottomTab() === 'alarms'" (click)="bottomTab.set('alarms')">
+              ◷ Alarms <span>{{ realtime.alarms().length }}</span></button
+            ><button [class.active]="bottomTab() === 'console'" (click)="bottomTab.set('console')">
+              ›_ Script console <span>{{ logs().length }}</span>
+            </button>
+            <div class="top-spacer"></div>
+            <small>{{
+              dataSource() === 'live' ? 'Latest 50 device alarms' : 'Simulation workspace'
+            }}</small>
+            @if (bottomTab() === 'console') {
+              <button class="clear-button" (click)="logs.set([])">Clear</button>
+            }
+          </div>
+          <div class="bottom-content">
+            @if (bottomTab() === 'alarms') {
+              @if (realtime.error()) {
+                <div class="inline-error">{{ realtime.error() }}</div>
+              }
+              @if (!realtime.alarms().length) {
+                <div class="empty-alarms">
+                  <span class="empty-check"><tx-icon name="alarm" /></span>
+                  <div>
+                    <b>{{ api.user() ? 'No alarms received' : 'No live alarm connection' }}</b>
+                    <p>
+                      {{
+                        api.user()
+                          ? 'Alarms appear here when ThingsBoard delivers a matching event.'
+                          : 'Connect ThingsBoard to receive live alarms and acknowledge events.'
+                      }}
+                    </p>
+                  </div>
+                  <span class="quiet-label">{{
+                    api.user() ? realtime.state() : 'NOT CONNECTED'
+                  }}</span>
+                </div>
+              } @else {
+                <table class="alarm-table">
+                  <thead>
+                    <tr>
+                      <th>Severity</th>
+                      <th>Alarm</th>
+                      <th>Originator</th>
+                      <th>Time</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (alarm of realtime.alarms(); track alarm.id) {
+                      <tr>
+                        <td>
+                          <span class="severity" [class.critical]="alarm.severity === 'CRITICAL'">{{
+                            alarm.severity
+                          }}</span>
+                        </td>
+                        <td>{{ alarm.name }}</td>
+                        <td>{{ alarm.originator }}</td>
+                        <td>{{ alarm.createdTime | date: 'HH:mm:ss' }}</td>
+                        <td>{{ alarm.status }}</td>
+                        <td>
+                          <button
+                            [disabled]="!alarm.status.includes('UNACK') || !!alarmBusy()"
+                            (click)="acknowledge(alarm.id)"
+                          >
+                            {{ alarmBusy() === alarm.id ? 'Sending…' : 'Acknowledge' }}
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            } @else {
+              @if (!logs().length) {
+                <div class="console-empty">Script diagnostics and action results appear here.</div>
+              }
+              @for (log of logs(); track $index) {
+                <div class="console-row" [class.error]="log.error">
+                  <time>{{ log.time | date: 'HH:mm:ss' }}</time><span>{{
+                    log.error ? 'ERROR' : 'INFO'
+                  }}</span>
+                  <p>{{ log.message }}</p>
+                </div>
+              }
+            }
+          </div>
+        </section>
+      } @else {
+        <div class="collapsed-diagnostics">
+          <button (click)="bottomOpen.set(true); bottomTab.set('alarms')">
+            <tx-icon name="alarm" />Alarms <span>{{ realtime.alarms().length }}</span></button
+          ><button (click)="bottomOpen.set(true); bottomTab.set('console')">
+            <tx-icon name="console" />Script console <span>{{ logs().length }}</span></button
+          ><span class="top-spacer"></span
+          ><small role="status">{{ realtime.error() || interactionHint() }}</small>
+        </div>
+      }
+    </main>
+
+    @if (mode() !== 'runtime' && rightOpen()) {
+      <div
+        class="pane-splitter vertical"
+        role="separator"
+        tabindex="0"
+        aria-label="Resize inspector"
+        aria-orientation="vertical"
+        aria-valuemin="270"
+        aria-valuemax="460"
+        [attr.aria-valuenow]="rightWidth()"
+        (pointerdown)="resizePane($event, 'right')"
+        (keydown)="paneKey($event, 'right')"
+      ></div>
+      <aside
+        class="right-panel"
+        [style.width.px]="rightWidth()"
+        [style.min-width.px]="rightWidth()"
+      >
+        <div class="inspector-title">
+          <span>Inspector</span
+          ><button
+            class="tool-button"
+            aria-label="Close inspector"
+            title="Close inspector"
+            (click)="rightOpen.set(false)"
+          >
+            ×
+          </button>
+        </div>
+        @if (selectedRoute(); as route) {
+          <div class="selected-summary">
+            <span class="selected-glyph"><tx-icon name="pipe" /></span>
+            <div>
+              <b>{{ connectionName(route.link) }}</b><small>{{
+                route.link.bendPoints?.length ? 'Adjusted route' : 'Automatic route'
+              }}</small>
+            </div>
+          </div>
+          <div class="pipe-route-inspector">
+            <p>
+              Drag a corner or segment handle to pin the route. Ports stay attached when equipment
+              moves.
+            </p>
+            @if (route.signalStyle) {
+              <label
+                >Signal type<select
+                  aria-label="Signal type"
+                  [ngModel]="route.link.medium"
+                  (ngModelChange)="store.setSignalMedium(route.link.id, $event)"
+                  [disabled]="mode() !== 'edit'"
+                >
+                  @for (medium of signalMedia; track medium) {
+                    <option [value]="medium">{{ signalStyles[medium].label }}</option>
+                  }
+                </select></label
+              >
+              <p>{{ route.signalStyle.description }} · arrow points from output to input.</p>
+              <p class="field-hint">
+                Diagram connection only. Configure telemetry and device actions separately.
+              </p>
+            }
+            @if (route.crossingCount) {
+              <p class="route-clear">
+                {{ route.crossingCount }} crossing{{ route.crossingCount === 1 ? '' : 's' }} ·
+                separate pipes
+              </p>
+            }
+            @if (route.blocked) {
+              <p class="route-warning" role="status">
+                Route blocked. Move an obstacle or bend point, or reset the route.
+              </p>
+            } @else {
+              <p class="route-clear">Clear route · 12 px routing margin</p>
+            }
+            <button
+              (click)="store.updatePipeBends(route.link.id, [])"
+              [disabled]="!route.link.bendPoints?.length"
+            >
+              Reset to automatic routing
+            </button>
+            <div class="section-heading divided">
+              <span>PINNED BEND POINTS</span
+              ><span>{{ route.link.bendPoints?.length ?? 0 }} / 32</span>
+            </div>
+            @for (point of route.link.bendPoints ?? []; track $index) {
+              <div class="route-pin-row">
+                <span>{{ $index + 1 }}</span><span
+                  >X {{ precision(point.x) }} · Y {{ precision(point.y) }}</span
+                ><button
+                  (click)="removeRoutePin($index)"
+                  [attr.aria-label]="'Remove route bend ' + ($index + 1)"
+                >
+                  ×
+                </button>
+              </div>
+            } @empty {
+              <p class="field-hint">
+                No pinned points. The route adapts automatically around objects.
+              </p>
+            }
+            <p class="field-hint">
+              Arrow keys move a focused handle; Shift moves 8 px. Delete removes a pinned point.
+              Escape cancels a drag. Ctrl/⌘ bypasses grid snapping.
+            </p>
+            <button
+              (click)="store.deletePipe(route.link.id); selectedRouteId.set(null)"
+              class="danger"
+            >
+              Delete connection
+            </button>
+          </div>
+        } @else if (store.selectedWidgets().length > 1) {
+          @defer (on immediate) {
+            <tx-multi-inspector
+              [editable]="mode() === 'edit'"
+              (geometry)="updateNumber($event.key, $event.value)"
+            />
+          }
+        } @else {
+          @if (store.selected(); as widget) {
+            <div class="selected-summary">
+              <span class="selected-glyph"><tx-icon [name]="widget.kind" /></span>
+              <div>
+                <b>{{ widget.name }}</b><small
+                  >{{ descriptions[widget.kind] }} <span>· {{ widget.id.slice(0, 8) }}</span></small
+                >
+              </div>
+            </div>
+            @if (widget.locked) {
+              <div class="locked-note">
+                <tx-icon name="lock" />Component locked<button
+                  (click)="store.toggleLocked(widget.id)"
+                >
+                  Unlock
+                </button>
+              </div>
+            }
+            @if (typeFor(widget); as type) {
+              <div class="instance-summary">
+                <div>
+                  <tx-icon name="faceplate" /><b>{{ type.name }}</b
+                  ><span>v{{ widget.faceplate!.version }}</span>
+                </div>
+                <p>
+                  {{
+                    overrides(widget).length
+                      ? overrides(widget).length +
+                        (overrides(widget).length === 1
+                          ? ' instance override'
+                          : ' instance overrides')
+                      : 'Using type defaults'
+                  }}
+                  · Equipment binding is instance-specific.
+                </p>
+                <div class="instance-actions">
+                  <button
+                    [disabled]="mode() !== 'edit' || widget.locked"
+                    (click)="openBinding('value')"
+                  >
+                    Bind equipment</button
+                  ><button [disabled]="mode() !== 'edit'" (click)="editFaceplate(type)">
+                    Edit type
+                  </button>
+                  @if (widget.faceplate!.version < type.versions.at(-1)!.version) {
+                    <button
+                      [disabled]="mode() !== 'edit' || widget.locked"
+                      (click)="store.updateFaceplate()"
+                    >
+                      Upgrade to v{{ type.versions.at(-1)!.version }}
+                    </button>
+                  }
+                  <button
+                    [disabled]="mode() !== 'edit' || widget.locked"
+                    (click)="resetFaceplate()"
+                  >
+                    Reset overrides</button
+                  ><button
+                    [disabled]="mode() !== 'edit' || widget.locked"
+                    (click)="store.detachFaceplate()"
+                  >
+                    Detach
+                  </button>
+                </div>
+              </div>
+            }
+            <div class="inspector-tabs">
+              @for (tab of ['properties', 'binding', 'actions', 'script']; track tab) {
+                <button [class.active]="inspector() === tab" (click)="inspector.set($any(tab))">
+                  {{
+                    tab === 'properties'
+                      ? 'Style'
+                      : tab === 'binding'
+                        ? 'Data'
+                        : tab === 'actions'
+                          ? 'Actions'
+                          : 'Script'
+                  }}
+                </button>
+              }
+            </div>
+            <div class="inspector-body" [class.readonly]="mode() !== 'edit'">
+              @if (mode() !== 'edit') {
+                <div class="info-note">Return to Design to edit this component.</div>
+              }
+              <fieldset [disabled]="mode() !== 'edit' || widget.locked">
+                @switch (inspector()) {
+                  @case ('properties') {
+                    <div class="section-heading"><span>COMPONENT</span></div>
+                    <label
+                      >Name<input
+                        [ngModel]="widget.name"
+                        (change)="store.updateWidget({ name: $any($event.target).value })"
+                        (keydown.enter)="
+                          $event.preventDefault();
+                          store.updateWidget({ name: $any($event.target).value });
+                          $any($event.target).blur()
+                        "
+                        maxlength="100"
+                    /></label>
+                    <tx-property-row
+                      [widget]="widget"
+                      property="text"
+                      label="Display text"
+                      (configure)="openBinding('text')"
+                    >
+                      <input
+                        id="property-text"
+                        [ngModel]="
+                          bound(widget, 'text') ? propertyDisplay(widget, 'text') : widget.text
+                        "
+                        [readOnly]="bound(widget, 'text')"
+                        (change)="
+                          !bound(widget, 'text') &&
+                            store.updateWidget({ text: $any($event.target).value })
+                        "
+                        maxlength="300"
+                        placeholder="Label or unit"
+                      />
+                    </tx-property-row>
+                    <tx-property-row
+                      [widget]="widget"
+                      property="value"
+                      label="Value"
+                      (configure)="openBinding('value')"
+                    >
+                      <div class="resolved-property" id="property-value">
+                        <strong>{{ propertyDisplay(widget, 'value') }}</strong><span
+                          [class.quality-warning]="
+                            !['good', 'simulation'].includes(quality(widget))
+                          "
+                          >{{ quality(widget) }}</span
+                        >
+                      </div>
+                    </tx-property-row>
+                    @if (isDashboardKind(widget.kind)) {
+                      @defer (on immediate) {
+                        <tx-dashboard-properties
+                          [widget]="widget"
+                          (changed)="store.updateWidget({ dashboard: $event })"
+                        />
+                      }
+                    }
+                    @if (['value', 'instrument'].includes(widget.kind)) {
+                      @defer (on immediate) {
+                        <tx-operating-range
+                          [widget]="widget"
+                          [disabled]="widget.locked || mode() !== 'edit'"
+                          (changed)="store.updateWidget({ operatingRange: $event })"
+                        />
+                      }
+                    }
+                    @if (widget.kind === 'instrument') {
+                      <label
+                        >Instrument function<select
+                          aria-label="Instrument function"
+                          [ngModel]="widget.instrumentFunction"
+                          (ngModelChange)="store.updateWidget({ instrumentFunction: $event })"
+                        >
+                          @for (code of instrumentFunctions; track code) {
+                            <option [value]="code">{{ code }}</option>
+                          }
+                        </select></label
+                      >
+                      <label
+                        >Instrument location<select
+                          aria-label="Instrument location"
+                          [ngModel]="widget.instrumentLocation"
+                          (ngModelChange)="store.updateWidget({ instrumentLocation: $event })"
+                        >
+                          <option value="field">Field mounted</option>
+                          <option value="panel">Panel mounted</option>
+                          <option value="shared">Shared display</option>
+                        </select></label
+                      >
+                      <p class="field-hint">
+                        Set the loop tag in Display text. Bind Value to the measurement; use the
+                        binding unit for engineering units.
+                      </p>
+                    }
+                    @if (portsFor(widget).length) {
+                      <div class="process-connection-tools">
+                        @if (fittingKinds.includes(widget.kind)) {
+                          <button
+                            (click)="rotateFitting()"
+                            [disabled]="widget.locked || mode() !== 'edit'"
+                          >
+                            Rotate 90° · {{ widget.pipeRotation }}°
+                          </button>
+                        }
+                        <button
+                          (click)="store.disconnectPorts(widget.id)"
+                          [disabled]="widget.locked || mode() !== 'edit'"
+                        >
+                          Disconnect ports
+                        </button>
+                        <p class="field-hint">
+                          Click two free ports to connect. Drag near a free port to snap. Escape
+                          cancels.
+                        </p>
+                      </div>
+                    }
+                    <div class="section-heading divided">
+                      <span>LAYOUT</span><span class="muted">px</span>
+                    </div>
+                    <div class="field-grid">
+                      <label
+                        >X position<input
+                          type="number"
+                          [ngModel]="precision(widget.x)"
+                          (change)="updateNumber('x', $any($event.target).value)"
+                          (keydown.enter)="
+                            $event.preventDefault();
+                            updateNumber('x', $any($event.target).value);
+                            $any($event.target).blur()
+                          " /></label
+                      ><label
+                        >Y position<input
+                          type="number"
+                          [ngModel]="precision(widget.y)"
+                          (change)="updateNumber('y', $any($event.target).value)"
+                          (keydown.enter)="
+                            $event.preventDefault();
+                            updateNumber('y', $any($event.target).value);
+                            $any($event.target).blur()
+                          " /></label
+                      ><label
+                        >Width<input
+                          type="number"
+                          min="40"
+                          [ngModel]="precision(widget.width)"
+                          (change)="updateNumber('width', $any($event.target).value)"
+                          (keydown.enter)="
+                            $event.preventDefault();
+                            updateNumber('width', $any($event.target).value);
+                            $any($event.target).blur()
+                          " /></label
+                      ><label
+                        >Height<input
+                          type="number"
+                          min="30"
+                          [ngModel]="precision(widget.height)"
+                          (change)="updateNumber('height', $any($event.target).value)"
+                          (keydown.enter)="
+                            $event.preventDefault();
+                            updateNumber('height', $any($event.target).value);
+                            $any($event.target).blur()
+                          "
+                      /></label>
+                    </div>
+                    <label
+                      >Rotation (°)<input
+                        type="number"
+                        aria-label="Object rotation"
+                        min="0"
+                        max="359.9"
+                        step="5"
+                        [ngModel]="widget.rotation"
+                        (change)="setObjectRotation($any($event.target).valueAsNumber)"
+                    /></label>
+                    <div class="section-heading divided"><span>APPEARANCE</span></div>
+                    <tx-property-row
+                      [widget]="widget"
+                      property="color"
+                      label="Accent colour"
+                      (configure)="openBinding('color')"
+                    >
+                      <div class="color-field">
+                        <input
+                          id="property-color"
+                          type="color"
+                          [ngModel]="widgetColor(widget)"
+                          [disabled]="bound(widget, 'color')"
+                          (ngModelChange)="store.updateWidget({ color: $event })"
+                        /><span>{{ widgetColor(widget).toUpperCase() }}</span>
+                      </div>
+                    </tx-property-row>
+                    <tx-property-row
+                      [widget]="widget"
+                      property="visible"
+                      label="Visibility"
+                      (configure)="openBinding('visible')"
+                    >
+                      <label class="check-field"
+                        ><input
+                          id="property-visible"
+                          type="checkbox"
+                          [ngModel]="
+                            bound(widget, 'visible') ? widgetVisible(widget) : widget.visible
+                          "
+                          [disabled]="bound(widget, 'visible')"
+                          (ngModelChange)="store.updateWidget({ visible: $event })"
+                        />Visible in Preview and Runtime</label
+                      >
+                    </tx-property-row>
+                    <tx-property-row
+                      [widget]="widget"
+                      property="enabled"
+                      label="Enabled state"
+                      (configure)="openBinding('enabled')"
+                    >
+                      <label class="check-field"
+                        ><input
+                          id="property-enabled"
+                          type="checkbox"
+                          [ngModel]="
+                            bound(widget, 'enabled') ? widgetEnabled(widget) : widget.enabled
+                          "
+                          [disabled]="bound(widget, 'enabled')"
+                          (ngModelChange)="store.updateWidget({ enabled: $event })"
+                        />Allow operator activation</label
+                      >
+                    </tx-property-row>
+                    <label
+                      >Simulation value<input
+                        type="number"
+                        [ngModel]="widget.demoValue"
+                        (change)="updateNumber('demoValue', $any($event.target).value)"
+                        (keydown.enter)="
+                          $event.preventDefault();
+                          updateNumber('demoValue', $any($event.target).value);
+                          $any($event.target).blur()
+                        "
+                    /></label>
+                    <p class="field-hint">
+                      Used only while signed out. Live mode never substitutes simulated values.
+                    </p>
+                    <div class="selection-actions">
+                      <button class="button secondary" (click)="store.duplicate()">
+                        <tx-icon name="copy" /> Duplicate</button
+                      ><button
+                        class="delete-button"
+                        (click)="store.delete()"
+                        aria-label="Delete component"
+                      >
+                        ⌫
+                      </button>
+                    </div>
+                    @if (canCreateFaceplate()) {
+                      <button
+                        class="button secondary full create-type-button"
+                        (click)="editFaceplate()"
+                      >
+                        <tx-icon name="faceplate" />Create reusable faceplate
+                      </button>
+                    }
+                  }
+                  @case ('binding') {
+                    <div class="section-heading"><span>PROPERTY BINDINGS</span></div>
+                    <p class="panel-intro">
+                      Configure each property independently. Use telemetry, a fixed value, or a
+                      JavaScript expression.
+                    </p>
+                    @for (property of propertyNames; track property) {
+                      <button class="binding-list-row" (click)="openBinding(property)">
+                        <div>
+                          <b>{{ propertyLabels[property] }}</b><small>{{
+                            bindingDescription(widget, property)
+                          }}</small>
+                        </div>
+                        <span>{{ propertyDisplay(widget, property) }}</span><tx-icon
+                          name="binding"
+                        />
+                      </button>
+                      @if (properties(widget)[property].error && bound(widget, property)) {
+                        <p class="binding-diagnostic">{{ properties(widget)[property].error }}</p>
+                      }
+                    }
+                    <div class="info-note">
+                      Bindings are read-only. Configure operator commands separately under Actions.
+                      Hidden components remain selectable in Design.
+                    </div>
+                  }
+                  @case ('actions') {
+                    @defer (on immediate) {
+                      <tx-action-editor (openScript)="inspector.set('script')" />
+                    }
+                  }
+                  @case ('script') {
+                    <div class="section-heading">
+                      <span>JAVASCRIPT</span><span class="language-tag">JS</span>
+                    </div>
+                    <label
+                      >Execution scope<select
+                        [ngModel]="scriptTarget()"
+                        (ngModelChange)="scriptTarget.set($event)"
+                      >
+                        <option value="behavior">On value refresh · appearance</option>
+                        <option value="onClick">On activation · actions</option>
+                        <option value="onDoubleClick">On double-click · actions</option>
+                      </select></label
+                    >
+                    <textarea
+                      class="script-editor"
+                      spellcheck="false"
+                      aria-label="JavaScript source"
+                      [ngModel]="widget[scriptTarget()]"
+                      (change)="updateScript($any($event.target).value)"
+                      placeholder="// Your JavaScript here"
+                    ></textarea>
+                    <div class="script-toolbar">
+                      <button (click)="insertExample()">Insert example</button
+                      ><button class="button primary small" (click)="testScript()">
+                        ▷ Test script
+                      </button>
+                    </div>
+                    <div class="info-note">
+                      Test validates and reports effects without sending commands.
+                    </div>
+                    <div class="section-heading divided"><span>AVAILABLE API</span></div>
+                    <div class="api-reference">
+                      <code>context.value</code>
+                      <p>Current bound or simulated value.</p>
+                      <code>context.quality · context.name</code>
+                      <p>Data quality and component name.</p>
+                      <code>hmi.setColor('#329c8c')</code>
+                      <p>Set component accent colour.</p>
+                      <code>hmi.setText('Running')</code>
+                      <p>Override a label or button's text.</p>
+                      <code>hmi.notify('Message')</code>
+                      <p>Show a message from a click script.</p>
+                      <code>hmi.runAction()</code>
+                      <p>Request this component's configured action from a click script.</p>
+                    </div>
+                  }
+                }
+              </fieldset>
+            </div>
+          } @else {
+            <div class="inspector-empty">
+              <div class="inspector-empty-icon"><tx-icon name="settings" /></div>
+              <h3>No component selected</h3>
+              <p>
+                Select a component to edit its style, connect telemetry, or define its behaviour.
+              </p>
+              <button class="button secondary" (click)="leftTab.set('symbols')">
+                Add component
+              </button>
+            </div>
+            <div class="screen-properties">
+              <div class="section-heading"><span>PROJECT SETTINGS</span></div>
+              <label
+                >Project name<input
+                  [ngModel]="store.project().name"
+                  (change)="store.renameProject($any($event.target).value)"
+                  [disabled]="mode() !== 'edit'"
+                  maxlength="100"
+              /></label>
+              <div class="section-heading divided"><span>CURRENT SCREEN</span></div>
+              <div class="property-line">
+                <span>{{ store.screen().name }}</span><b
+                  >{{ store.screen().width }} × {{ store.screen().height }}</b
+                >
+              </div>
+              <div class="screen-actions">
+                <button
+                  class="button secondary small"
+                  [disabled]="mode() !== 'edit'"
+                  (click)="screenDialog.set('edit')"
+                >
+                  Settings</button
+                ><button
+                  class="button secondary small"
+                  [disabled]="mode() !== 'edit'"
+                  (click)="store.duplicateScreen()"
+                >
+                  Duplicate</button
+                ><button
+                  class="text-button danger"
+                  [disabled]="mode() !== 'edit' || store.project().screens.length < 2"
+                  (click)="deleteScreen()"
+                >
+                  Delete
+                </button>
+              </div>
+              <div class="property-line"><span>Renderer</span><b>SVG / HTML</b></div>
+              <div class="property-line"><span>Backend</span><b>ThingsBoard 4.4</b></div>
+              <div class="property-line"><span>Scripts</span><b>Isolated JavaScript</b></div>
+            </div>
+          }
+        }
+        <div class="inspector-footnote"><span>◇</span> Changes apply to the draft</div>
+      </aside>
+    }
+  </div>
+</div>
+
+@if (toast()) {
+  <div class="toast" role="status">
+    <span>◈</span>{{ toast()
+    }}<button (click)="toast.set('')" aria-label="Dismiss notification">×</button>
+  </div>
+}
+@if (loginOpen()) {
+  <dialog
+    txModal
+    (close)="loginOpen.set(false)"
+    class="modal login-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="login-title"
+  >
+    <button class="modal-close" (click)="loginOpen.set(false)" aria-label="Close sign in">×</button>
+    <div class="modal-mark">↗</div>
+    <span class="eyebrow">THINGSBOARD CONNECTION</span>
+    <h2 id="login-title">Sign in to ThingsBoard</h2>
+    <p>
+      Sign in with your ThingsBoard username and password. Your credentials stay between the gateway
+      and ThingsBoard.
+    </p>
+    <form (ngSubmit)="login()">
+      <label
+        >Username<input
+          name="username"
+          [(ngModel)]="username"
+          autocomplete="username"
+          required
+          placeholder="you@company.com"
+          autofocus /></label
+      ><label
+        >Password<input
+          name="password"
+          type="password"
+          [(ngModel)]="password"
+          autocomplete="current-password"
+          required
+      /></label>
+      @if (loginError()) {
+        <div class="inline-error" role="alert">{{ loginError() }}</div>
+      }
+      <button class="button primary full" type="submit" [disabled]="loginBusy()">
+        {{ loginBusy() ? 'Connecting…' : 'Sign in to ThingsBoard' }} <span>↗</span>
+      </button>
+    </form>
+    <div class="login-server"><i></i> Test server · 192.168.1.148:8080</div>
+    <button class="text-button" (click)="continueOffline()">Continue designing offline</button>
+  </dialog>
+}
+@if (projectsOpen()) {
+  <dialog
+    txModal
+    (close)="projectsOpen.set(false)"
+    class="modal projects-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="projects-title"
+  >
+    <button class="modal-close" (click)="projectsOpen.set(false)" aria-label="Close projects">
+      ×</button
+    ><span class="eyebrow">YOUR WORKSPACE</span>
+    <h2 id="projects-title">Projects & releases</h2>
+    <p>Projects are private to your ThingsBoard user.</p>
+    @if (!savedProjects().length) {
+      <div class="info-note">No saved projects yet. Save the current draft to get started.</div>
+    }
+    @for (project of savedProjects(); track project.id) {
+      <button class="project-row" (click)="loadProject(project.id)">
+        <span>▧</span><b>{{ project.name }}</b
+        ><small>r{{ project.revision }}</small
+        ><span>↗</span>
+      </button>
+    }
+    @if (releases().length) {
+      <div class="section-heading divided"><span>CURRENT PROJECT RELEASES</span></div>
+      @for (release of releases().slice().reverse(); track release.id) {
+        <div class="release-row">
+          <span>r{{ release.project.revision }} · {{ release.publishedAt | date: 'medium' }}</span
+          ><button
+            (click)="activeRelease.set(release); setMode('runtime'); projectsOpen.set(false)"
+          >
+            Run</button
+          ><button (click)="restoreRelease(release)">Restore draft</button>
+        </div>
+      }
+    }
+  </dialog>
+}
+@if (commands.current() || commandExampleControls().length) {
+  @defer (on immediate) {
+    <tx-command-feedback
+      [historyWidgets]="commandExampleControls()"
+      [rightInset]="rightOpen() && mode() !== 'runtime' ? rightWidth() + 24 : 24"
+    />
+  }
+}
+
+@if (bindingTarget(); as property) {
+  @if (store.selected(); as widget) {
+    @defer (on immediate) {
+      <tx-binding-editor
+        [widget]="widget"
+        [property]="property"
+        [suggestedKey]="typeFor(widget)?.telemetryKey ?? ''"
+        [environment]="bindingEnvironment()"
+        [currentValue]="properties(widget).value"
+        (applied)="applyPropertyBinding($event)"
+        (closed)="bindingTarget.set(null)"
+      />
+    }
+  }
+}
+
+@if (contextMenu(); as menu) {
+  @defer (on immediate) {
+    <tx-context-menu
+      [x]="menu.x"
+      [y]="menu.y"
+      [items]="contextItems()"
+      (chosen)="menuAction($event)"
+      (closed)="closeContext()"
+    />
+  }
+}
+@if (screenDialog()) {
+  @defer (on immediate) {
+    <tx-screen-editor
+      [screen]="screenDialog() === 'edit' ? store.screen() : null"
+      [existingCount]="store.project().screens.length"
+      (saved)="saveScreen($event)"
+      (closed)="screenDialog.set(null)"
+    />
+  }
+}
+@if (faceplateEditor(); as editor) {
+  @defer (on immediate) {
+    <tx-faceplate-editor
+      [source]="editor.source"
+      [type]="editor.type"
+      (saved)="publishFaceplate($event)"
+      (closed)="faceplateEditor.set(null)"
+    />
+  }
+}
+@if (confirmation(); as prompt) {
+  <tx-confirmation
+    [title]="prompt.title"
+    [message]="prompt.message"
+    [confirmLabel]="prompt.label"
+    [danger]="prompt.danger"
+    (decision)="answer($event)"
+  />
+}
+@if (shortcutsOpen()) {
+  <dialog
+    txModal
+    class="modal shortcuts-modal"
+    (close)="shortcutsOpen.set(false)"
+    aria-labelledby="shortcuts-title"
+  >
+    <button class="modal-close" aria-label="Close shortcuts" (click)="shortcutsOpen.set(false)">
+      ×</button
+    ><span class="eyebrow">EDITOR REFERENCE</span>
+    <h2 id="shortcuts-title">Keyboard & canvas controls</h2>
+    <p>Use ⌘ on macOS or Ctrl on Windows/Linux.</p>
+    <dl class="shortcut-list">
+      <dt>Save draft</dt>
+      <dd><kbd>⌘ S</kbd></dd>
+      <dt>Undo / Redo</dt>
+      <dd><kbd>⌘ Z</kbd> / <kbd>⇧ ⌘ Z</kbd></dd>
+      <dt>Copy / Paste / Duplicate</dt>
+      <dd><kbd>⌘ C / V / D</kbd></dd>
+      <dt>Select all</dt>
+      <dd><kbd>⌘ A</kbd></dd>
+      <dt>Add to selection</dt>
+      <dd><kbd>Shift-click</kbd></dd>
+      <dt>Select inside group</dt>
+      <dd><kbd>Alt-click</kbd></dd>
+      <dt>Group / Ungroup</dt>
+      <dd><kbd>⌘ G</kbd> / <kbd>⇧ ⌘ G</kbd></dd>
+      <dt>Nudge 1 px / 10 px</dt>
+      <dd><kbd>Arrows</kbd> / <kbd>⇧ Arrows</kbd></dd>
+      <dt>Selection / Hand tool</dt>
+      <dd><kbd>V</kbd> / <kbd>H</kbd></dd>
+      <dt>Pan canvas</dt>
+      <dd><kbd>Space-drag</kbd> / <kbd>Middle drag</kbd></dd>
+      <dt>Fit screen / selection</dt>
+      <dd><kbd>⇧ 1</kbd> / <kbd>⇧ 2</kbd></dd>
+      <dt>Zoom at pointer</dt>
+      <dd><kbd>Ctrl/⌘ + Wheel</kbd></dd>
+      <dt>Constrain move / aspect ratio</dt>
+      <dd><kbd>Shift-drag</kbd></dd>
+      <dt>Bypass snapping</dt>
+      <dd><kbd>Ctrl/⌘-drag</kbd></dd>
+      <dt>Clear selection</dt>
+      <dd><kbd>Escape</kbd></dd>
+    </dl>
+  </dialog>
+}
+@if (equipmentDetails(); as widget) {
+  <dialog
+    txModal
+    class="modal equipment-dialog"
+    (close)="equipmentDetails.set(null)"
+    aria-labelledby="equipment-title"
+  >
+    <button
+      class="modal-close"
+      aria-label="Close equipment details"
+      (click)="equipmentDetails.set(null)"
+    >
+      ×</button
+    ><span class="eyebrow">EQUIPMENT FACEPLATE · {{ widget.kind.toUpperCase() }}</span>
+    <h2 id="equipment-title">{{ widget.name }}</h2>
+    <p>{{ typeFor(widget)?.name }} · Instance v{{ widget.faceplate?.version }}</p>
+    <div class="equipment-metric">
+      <tx-icon [name]="widget.kind" />
+      <div>
+        <strong>{{
+          widget.kind === 'pump'
+            ? quality(widget) === 'good' || quality(widget) === 'simulation'
+              ? numericValue(widget) > 0
+                ? 'Running'
+                : 'Stopped'
+              : 'Unknown'
+            : propertyDisplay(widget, 'value')
+        }}</strong><span
+          >{{
+            widget.kind === 'tank'
+              ? 'Level'
+              : widget.kind === 'valve'
+                ? 'Position'
+                : 'Equipment state'
+          }}
+          · {{ quality(widget) }} {{ widgetUnit(widget) }}</span
+        >
+      </div>
+    </div>
+    <dl class="equipment-properties">
+      <dt>Display label</dt>
+      <dd>{{ widgetText(widget) ?? widget.text }}</dd>
+      <dt>Value source</dt>
+      <dd>{{ bindingDescription(widget, 'value') }}</dd>
+      <dt>Visible</dt>
+      <dd>{{ widgetVisible(widget) ? 'Yes' : 'No' }}</dd>
+      <dt>Activation enabled</dt>
+      <dd>{{ widgetEnabled(widget) ? 'Yes' : 'No' }}</dd>
+    </dl>
+    <div class="info-note">
+      {{
+        mode() === 'preview'
+          ? 'Preview uses the current draft. Device commands are simulated.'
+          : 'This panel shows the published equipment instance.'
+      }}
+    </div>
+    <div class="modal-actions">
+      <button class="button secondary" (click)="equipmentDetails.set(null)">Close</button>
+    </div>
+  </dialog>
+}

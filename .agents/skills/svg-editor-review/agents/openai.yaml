@@ -1,0 +1,3 @@
+interface:
+  display_name: 'SVG Editor Review'
+  short_description: 'Review HMI geometry, rendering and history'

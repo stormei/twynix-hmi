@@ -1,3 +1,14 @@
+node_modules/
+dist/
+.angular/
+.env
+.data/
+test-results/
+playwright-report/
+*.log
+artifacts/
+.env.*
+!.env.example
 # Logs
 logs
 *.log

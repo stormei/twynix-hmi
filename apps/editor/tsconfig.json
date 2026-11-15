@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "outDir": "../../dist/editor-ts", "types": [] },
+  "include": ["src/**/*.ts", "../../packages/model/src/**/*.ts"]
+}

@@ -1,0 +1,152 @@
+/* Shared light-theme contract from Factory Intelligence. Keep the --tx names aligned. */
+:root {
+  --tx-navigation-accent: #e96032;
+  --tx-header-text: #e6eef5;
+  --tx-header-muted: #d8e5ef;
+  --tx-header-divider: rgb(255 255 255 / 20%);
+  --tx-header-hover: rgb(255 255 255 / 7%);
+  --tx-header-accent: #a6d1e6;
+  --tx-header-height: 64px;
+  --tx-floor-label: #ffffff;
+  --tx-floor-idle-label: #332c1c;
+  --tx-tile-unknown-surface: #e8edf3;
+  --tx-tile-unknown-text: #405167;
+  --tx-floor-unknown-header: #a2afba;
+  --tx-floor-running-header: #18794e;
+  --tx-floor-idle-header: #f4c45b;
+  --tx-floor-stopped-header: #5a6d7b;
+  --tx-floor-setup-header: #7859ad;
+  --tx-floor-fault-header: #c33e49;
+
+  --tx-availability-running: var(--tx-floor-running-header);
+  --tx-availability-downtime: #ef4444;
+  --tx-availability-unknown: #f59e0b;
+  --tx-availability-pending: #3b82f6;
+  --tx-state-running-text: #246b4a;
+  --tx-state-running-surface: #e8f5ee;
+  --tx-state-idle-text: #846019;
+  --tx-state-idle-surface: #fbf3df;
+  --tx-state-stopped-text: #526471;
+  --tx-state-stopped-surface: #edf1f3;
+  --tx-state-setup-text: #694895;
+  --tx-state-setup-surface: #f1ecf8;
+  --tx-state-fault-text: #a12f29;
+  --tx-state-fault-surface: #fbebea;
+  --tx-chart-label: #ffffff;
+  --tx-color-primary: #007cbb;
+  --tx-color-primary-hover: #135a96;
+  --tx-color-primary-strong: #0f4c81;
+  --tx-color-link: var(--tx-color-primary-strong);
+  --tx-color-success: #2d6a2d;
+  --tx-color-danger: #c92100;
+  --tx-color-danger-strong: #991b1b;
+  --tx-color-warning: #9a3412;
+  --tx-color-neutral: #6b7280;
+
+  --tx-text-default: #273449;
+  --tx-text-strong: #17243a;
+  --tx-text-muted: #5c6c81;
+  --tx-text-secondary: #405167;
+  --tx-text-subtle: #65758a;
+  --tx-text-inverse: #ffffff;
+  --tx-text-danger: #8a2b2b;
+  --tx-text-warning: #9a3412;
+  --tx-text-success: #246326;
+
+  --tx-surface-1: #ffffff;
+  --tx-surface-2: #f7f9fc;
+  --tx-surface-3: #edf1f7;
+  --tx-surface-info: #edf3f7;
+  --tx-surface-selected: #eaf1f5;
+  --tx-surface-success: #eef6f0;
+  --tx-surface-danger: #fbf1f1;
+  --tx-surface-warning: #f6f3ed;
+
+  /* Model categories describe definition types, not live health or alarm severity. */
+  --tx-model-measurement-accent: #17618f;
+  --tx-model-measurement-surface: #edf5fb;
+  --tx-model-state-accent: #176c65;
+  --tx-model-state-surface: #edf7f5;
+  --tx-model-derived-accent: #70439a;
+  --tx-model-derived-surface: #f5f0fa;
+  --tx-model-alarm-accent: #875b13;
+  --tx-model-alarm-surface: #fbf5e8;
+  --tx-model-command-accent: #475569;
+  --tx-model-command-surface: #f0f3f6;
+  --tx-model-relationship-accent: #4d55a1;
+  --tx-model-relationship-surface: #f0f1fb;
+
+  --tx-border-default: #c6d0df;
+  --tx-border-muted: #dce3ed;
+  --tx-border-subtle: #e8edf4;
+  --tx-border-focus: #4c8dc5;
+  --tx-border-strong: #94a3b8;
+  --tx-border-info: rgba(0, 124, 187, 0.24);
+  --tx-border-success: rgba(45, 106, 45, 0.24);
+  --tx-border-warning: rgba(154, 52, 18, 0.24);
+  --tx-border-danger: rgba(201, 33, 0, 0.24);
+
+  --tx-app-background: #f3f6fa;
+  --tx-surface-header: #072746;
+  --tx-side-nav-width: 272px;
+  --tx-page-padding-x: 32px;
+  --tx-page-padding-y: 28px;
+
+  --tx-control-height: 38px;
+  --tx-control-height-sm: 28px;
+  --tx-control-padding-x: 0.5rem;
+  --tx-control-padding-y: 0.35rem;
+  --tx-faceplate-panel-width: 560px;
+
+  --tx-tree-row-height: 32px;
+  --tx-tree-row-height-comfortable: 40px;
+  --tx-tree-row-gap: 5px;
+  --tx-tree-row-padding-x: 6px;
+  --tx-tree-row-padding-y: 2px;
+  --tx-tree-indent-base: 6px;
+  --tx-tree-indent-step: 18px;
+  --tx-tree-expander-size: 20px;
+  --tx-tree-row-radius: var(--tx-radius-sm);
+  --tx-tree-row-hover: var(--tx-surface-3);
+  --tx-tree-row-selected: #eaf1f5;
+  --tx-tree-row-included: #f1f5f7;
+
+  --tx-space-1: 0.25rem;
+  --tx-space-2: 0.45rem;
+  --tx-space-3: 0.5rem;
+  --tx-space-4: 0.65rem;
+  --tx-space-5: 0.75rem;
+  --tx-space-6: 1rem;
+  --tx-space-7: 1.25rem;
+
+  --tx-monitor-panel-radius: 0px;
+  --tx-radius-xs: 3px;
+  --tx-radius-sm: 6px;
+  --tx-radius-md: 10px;
+  --tx-radius-lg: 12px;
+  --tx-radius-pill: 999px;
+
+  --tx-font-size-xs: 11px;
+  --tx-font-size-sm: 13px;
+  --tx-font-size-md: 13px;
+  --tx-font-size-lg: 14px;
+  --tx-font-size-xl: 16px;
+
+  --tx-font-weight-medium: 500;
+  --tx-font-weight-regular: 400;
+  --tx-font-weight-semibold: 600;
+  --tx-font-weight-bold: 700;
+
+  --tx-focus-ring: 0 0 0 2px rgba(76, 141, 197, 0.15);
+  --tx-focus-ring-strong: 0 0 0 2px rgba(76, 141, 197, 0.25);
+  --tx-focus-ring-neutral: 0 0 0 2px rgba(148, 163, 184, 0.2);
+
+  --tx-shadow-dialog: 0 18px 48px rgba(15, 23, 42, 0.18);
+  --tx-shadow-surface: 0 2px 8px rgba(16, 24, 40, 0.04);
+  --tx-shadow-overlay: 0 8px 24px rgba(15, 23, 42, 0.14);
+
+  --tx-motion-fast: 120ms;
+  --tx-motion-standard: 180ms;
+  --tx-overlay-backdrop: rgba(15, 23, 42, 0.52);
+  --tx-tooltip-background: rgba(17, 24, 39, 0.96);
+}
