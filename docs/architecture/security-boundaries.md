@@ -34,3 +34,26 @@ Verification must not require production secrets. Use fake accounts, ephemeral
 loopback REST/WebSocket servers and disposable storage. Optional PostgreSQL tests
 require a dedicated loopback database and an explicit opt-in. Do not point them at
 an existing project database. See quality gates for the exact safeguards.
+
+New appearance behaviors explicitly opt into `resultMode: "appearance"`. Their
+QuickJS contexts expose immutable primitive input snapshots and return validated,
+owned text/color and bounded position/rotation overrides only; Date/random and the legacy action/effects API are
+unavailable. Capability and ownership checks apply during project validation and
+again at execution. Legacy scripts, including phase 1 named-input scripts, keep
+their effects API. All behavior work is coalesced and rate bounded; these limits
+do not establish hard real-time or an aggregate CPU budget for other script paths.
+
+Behavior authoring uses a separate authenticated gateway subscription for selected
+draft sources, with alarms disabled and cleanup on close. Live tests exclude demo
+primary values; explicit configured constants remain configuration. Simulation is
+dialog-local and never sent upstream. All tests use the same bounded interpreter
+and validate outputs without executing returned actions. Templates are reviewed
+copy-in JavaScript with escaped parameters, not dynamically loaded packages.
+
+Phase 5 compiles user source separately inside QuickJS, with trusted bounded result
+serialization and error inspection in the VM. The host never traverses user result/error
+objects. One Worker request is in flight, at most 64 are pending, and property resolution
+uses windows of eight widgets. Watchdog reset rejects outstanding work; late messages
+are ignored and retries create/reload Worker/WASM state. Failure counters cannot be
+bypassed by fast telemetry. These controls have synthetic adversarial/recovery evidence;
+human security review and production soak are still pending.

@@ -30,11 +30,12 @@ const server = createServer(async (request, response) => {
     } catch {
       file = resolve(root, 'index.html');
     }
+    const body = await readFile(file);
     response.writeHead(200, {
       'Content-Type': contentTypes[extname(file)] ?? 'application/octet-stream',
       'Cache-Control': 'no-store',
     });
-    response.end(await readFile(file));
+    response.end(body);
   } catch {
     response.writeHead(500).end('Smoke server failed');
   }

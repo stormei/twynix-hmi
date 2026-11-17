@@ -1,46 +1,138 @@
 <section aria-label="Preview command history">
   <details open>
     <summary>
-      Command history <span>{{ entries().length }} · Preview only</span>
+      Command history
+      <span>{{ filteredEntries().length }} / {{ entries().length }} · Preview only</span>
+      <button
+        type="button"
+        class="history-action"
+        [disabled]="!entries().length"
+        title="Clear all lab history, including filtered-out rows. Controls stay unchanged."
+        (click)="$event.stopPropagation(); clearHistory()"
+      >
+        Clear history
+      </button>
+      <button
+        type="button"
+        class="history-action"
+        (click)="$event.stopPropagation(); loadSampleHistory()"
+      >
+        Load sample history
+      </button>
     </summary>
-    @if (entries().length) {
-      <div class="history-scroll" tabindex="0" aria-label="Command history entries">
-        <table>
-          <caption>
-            Latest 100 Preview attempts · newest first · Reset example clears history
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Time / control</th>
-              <th scope="col">Requested</th>
-              <th scope="col">Simulated result</th>
-              <th scope="col">Status / validation</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (entry of entries(); track entry.id) {
-              <tr>
-                <td>
-                  <time>{{ entry.recordedAt | date: 'HH:mm:ss' }}</time><strong>{{
-                    entry.name
-                  }}</strong
-                  ><small>{{ entry.method }}</small>
-                </td>
-                <td>{{ display(entry.requested) }}</td>
-                <td>
-                  {{ entry.simulationResult ? outcomes[entry.simulationResult] : 'Not simulated'
-                  }}<small>Reported: {{ display(entry.reported) }}</small>
-                </td>
-                <td>
-                  <strong
-                    [class.error]="['invalid', 'denied', 'failed', 'timeout'].includes(entry.phase)"
-                    >{{ entry.phase }}</strong><small>{{ entry.message }}</small>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
+    @if (undoCount()) {
+      <div class="history-notice" role="status">
+        <span
+          >{{ undoCount() }} history {{ undoCount() === 1 ? 'attempt' : 'attempts' }} cleared.</span
+        >
+        <button type="button" (click)="undoClearHistory()">Undo</button>
       </div>
+    }
+    <div class="history-filters" role="group" aria-label="Command history filters">
+      <label
+        >Control<select
+          aria-label="Filter history by control"
+          [ngModel]="control()"
+          (ngModelChange)="control.set($event)"
+        >
+          <option value="">All controls</option>
+          @for (widget of widgets(); track widget.id) {
+            <option [value]="widget.id">{{ widget.name }}</option>
+          }
+        </select></label
+      >
+      <label
+        >Result<select
+          aria-label="Filter history by result"
+          [ngModel]="result()"
+          (ngModelChange)="result.set($event)"
+        >
+          <option value="">All results</option>
+          <optgroup label="Status">
+            <option value="invalid">Validation error</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="accepted">Accepted / awaiting readback</option>
+            <option value="failed">Failed</option>
+            <option value="timeout">Timeout</option>
+            <option value="denied">Denied</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="confirming">Awaiting confirmation</option>
+            <option value="sending">Simulating</option>
+          </optgroup>
+          <optgroup label="Chosen simulation">
+            <option value="simulation:confirmed">Reply + matching value</option>
+            <option value="simulation:accepted">Reply only</option>
+            <option value="simulation:failed">Device failure</option>
+            <option value="simulation:timeout">Timeout / unknown</option>
+          </optgroup>
+        </select></label
+      >
+      <button
+        type="button"
+        [attr.aria-pressed]="result() === 'invalid'"
+        (click)="result.set(result() === 'invalid' ? '' : 'invalid')"
+      >
+        Validation errors
+      </button>
+      <button type="button" [disabled]="!control() && !result()" (click)="clearFilters()">
+        Clear filters
+      </button>
+      <button
+        type="button"
+        [disabled]="!filteredEntries().length"
+        (click)="exportCsv()"
+        title="Export the filtered history as CSV"
+      >
+        Export CSV
+      </button>
+    </div>
+    @if (exportError()) {
+      <p role="alert">{{ exportError() }}</p>
+    }
+    @if (entries().length) {
+      @if (filteredEntries().length) {
+        <div class="history-scroll" tabindex="0" aria-label="Command history entries">
+          <table>
+            <caption>
+              Latest 100 Preview attempts · newest first · Clear history removes all lab attempts
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Time / control</th>
+                <th scope="col">Requested</th>
+                <th scope="col">Simulated result</th>
+                <th scope="col">Status / validation</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of filteredEntries(); track entry.id) {
+                <tr>
+                  <td>
+                    <time>{{ entry.recordedAt | date: 'HH:mm:ss' }}</time><strong>{{
+                      entry.name
+                    }}</strong
+                    ><small>{{ entry.method }}{{ entry.sample ? ' · Sample' : '' }}</small>
+                  </td>
+                  <td>{{ display(entry.requested) }}</td>
+                  <td>
+                    {{ entry.simulationResult ? outcomes[entry.simulationResult] : 'Not simulated'
+                    }}<small>Reported: {{ display(entry.reported) }}</small>
+                  </td>
+                  <td>
+                    <strong
+                      [class.error]="
+                        ['invalid', 'denied', 'failed', 'timeout'].includes(entry.phase)
+                      "
+                      >{{ entry.phase }}</strong><small>{{ entry.message }}</small>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p role="status">No matching attempts. Change or clear the filters to see more results.</p>
+      }
     } @else {
       <p>No attempts yet. Change a control to compare requests, results and validation here.</p>
     }

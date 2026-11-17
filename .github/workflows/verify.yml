@@ -1,4 +1,4 @@
-name: Verify HMI baseline
+name: Verify Twynix HMI
 on:
   push:
   pull_request:
@@ -9,11 +9,26 @@ concurrency:
   group: verify-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  foundation:
+    name: Foundation checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version-file: .tooling-python-version
+      - run: python scripts/validate_setup.py --strict
+      - run: python scripts/check.py
   quality:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
@@ -49,6 +64,8 @@ jobs:
       TWYNIX_TEST_DATABASE_URL: postgres://twynix_test:disposable_ci_password@127.0.0.1:5432/twynix_test_ci
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
@@ -60,6 +77,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
@@ -74,3 +93,23 @@ jobs:
         with:
           name: benchmark-evidence
           path: artifacts/benchmarks/
+
+  required:
+    name: Required checks
+    if: always()
+    needs: [foundation, quality, postgres, benchmark]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    env:
+      FOUNDATION_RESULT: ${{ needs.foundation.result }}
+      QUALITY_RESULT: ${{ needs.quality.result }}
+      POSTGRES_RESULT: ${{ needs.postgres.result }}
+      BENCHMARK_RESULT: ${{ needs.benchmark.result }}
+    steps:
+      - name: Require all configured project gates
+        shell: bash
+        run: |
+          test "$FOUNDATION_RESULT" = success
+          test "$QUALITY_RESULT" = success
+          test "$POSTGRES_RESULT" = success
+          test "$BENCHMARK_RESULT" = success

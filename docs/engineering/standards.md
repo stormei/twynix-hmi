@@ -27,6 +27,7 @@ Request an independent review of meaningful changes before merge. Supply require
 changed files and test evidence without coaching the reviewer to a preferred result.
 If no separate reviewer has actually run, record review as pending, not complete.
 Do not create another user chat or claim an independent review based on self-review.
+Identify a separate agent pass as AI review; it is not human approval.
 
 Delivery notes state the behavior changed, checks actually executed, baseline versus
 new failures, untested paths and material risks. Commit/push/deployment remain separate
@@ -46,10 +47,10 @@ explicitly authorized actions. No workflow or skill grants production access.
    Exercise relevant failure scenarios. Record baseline failures separately from
    regressions; never claim an unexecuted check passed.
 4. **REVIEW:** Inspect the complete diff for correctness, security, maintainability
-   and regressions. Significant or security-sensitive changes require an independent
-   review pass; security-sensitive changes also require human review. Resolve
-   critical findings before completion and record any pending review honestly.
-5. **COMMIT:** Summarize the focused changes, evidence and remaining limitations.
+   and regressions. Significant changes need a separate AI review when available;
+   security-sensitive work also follows the risk-based human review policy below.
+   Resolve critical findings before completion and record pending review honestly.
+5. **COMMIT / DELIVER:** Summarize the focused changes, evidence and remaining limitations.
    Request the user's approval before committing. Never push or deploy automatically.
 
 Treat external inputs and AI tool outputs as untrusted. Validate at boundaries,
@@ -60,3 +61,25 @@ integrations; production infrastructure and real equipment require explicit appr
 Keep approved requirements, architectural decisions and current status in repository
 files as part of the relevant change. Update existing guidance rather than copying
 it into parallel documents; conversation history is not the project source of truth.
+
+## Foundation integration and risk-based review
+
+The configured foundation gate is `python3 scripts/check.py --project`; it adds
+foundation checks and delegates to the existing aggregate application gate. See
+[setup](../setup.md). Documentation-only changes need foundation, link and format
+checks rather than unrelated application tests. Executable workflow or command
+changes need full verification. Installation is never implicit in verification.
+
+Routine solo work can use author review and appropriate checks. Significant work
+requires a separate AI review when available; record it as such. Another qualified
+human must review high-risk changes before merge or release: changed security trust
+models or weakened authentication/authorization/secret boundaries, new or materially
+different sensitive-data handling, destructive migrations without proven recovery,
+and safety-critical behavior or real-equipment control. Restoring an approved
+boundary does not automatically change its trust model; still test the behavior.
+AI review does not replace required human review. Keep affected capabilities
+isolated or disabled when that review is unavailable, and report the gap.
+
+Existing authorization remains valid for its stated action and scope. Commit,
+push, merge, publish and deployment are distinct actions and require explicit
+authorization; completing a feature or this workflow grants none of them.

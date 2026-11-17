@@ -1,4 +1,4 @@
-import { Injectable, Injector, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, Injector, computed, inject, signal } from '@angular/core';
 import type { ControlValue } from '@twynix/model';
 import type {
   CommandContext,
@@ -11,12 +11,16 @@ import type {
 @Injectable({ providedIn: 'root' })
 export class CommandStateService {
   private readonly injector = inject(Injector);
-  private readonly engine = signal<CommandRuntimeService | null>(null);
+  /** Registration slot shared with lazily loaded command tools. */
+  readonly engine = signal<CommandRuntimeService | null>(null);
   private readonly loading = signal(false);
   private readonly failure = signal<CommandRecord | null>(null);
   private generation = 0;
   readonly current = computed(() => this.failure() ?? this.engine()?.current() ?? null);
   readonly pending = computed(() => this.engine()?.pending() ?? null);
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.reset());
+  }
   busy() {
     return this.loading() || !!this.engine()?.busy();
   }
@@ -66,8 +70,7 @@ export class CommandStateService {
     this.generation++;
     this.loading.set(false);
     this.failure.set(null);
-    this.engine()?.reset();
-    if (clearHistory) this.engine()?.history.set([]);
+    this.engine()?.reset(clearHistory);
   }
   observe(value: unknown, quality: string, timestamp: number) {
     this.engine()?.observe(value, quality, timestamp);

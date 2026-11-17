@@ -641,6 +641,7 @@
                   }
                   <path
                     [attr.d]="route.path"
+                    [attr.data-connection-id]="route.link.id"
                     fill="none"
                     [attr.stroke]="
                       route.blocked
@@ -1134,6 +1135,27 @@
             } @else {
               @if (!logs().length) {
                 <div class="console-empty">Script diagnostics and action results appear here.</div>
+              }
+              @for (widget of displayScreen().widgets; track widget.id) {
+                @if (behaviorDiagnostics()[widget.id]; as diagnostic) {
+                  <div
+                    class="console-row"
+                    [class.error]="
+                      diagnostic.state === 'error' || diagnostic.state === 'quarantined'
+                    "
+                  >
+                    <span>{{ diagnostic.state.toUpperCase() }}</span>
+                    <p>
+                      {{ widget.name }} · {{ diagnostic.message }} ·
+                      {{ precision(diagnostic.durationMs) }} ms
+                    </p>
+                    @if (diagnostic.state === 'error' || diagnostic.state === 'quarantined') {
+                      <button type="button" class="text-button" (click)="retryBehavior(widget.id)">
+                        Retry behavior {{ widget.name }}
+                      </button>
+                    }
+                  </div>
+                }
               }
               @for (log of logs(); track $index) {
                 <div class="console-row" [class.error]="log.error">
@@ -1669,6 +1691,19 @@
                         <option value="onDoubleClick">On double-click · actions</option>
                       </select></label
                     >
+                    @if (scriptTarget() === 'behavior') {
+                      <button
+                        type="button"
+                        class="button secondary"
+                        (click)="openBehaviorEditor(widget)"
+                      >
+                        Open behavior editor
+                      </button>
+                      <p class="field-hint">
+                        Configure live telemetry inputs, templates, owned properties and local
+                        simulation.
+                      </p>
+                    }
                     <textarea
                       class="script-editor"
                       spellcheck="false"
@@ -2025,4 +2060,16 @@
       <button class="button secondary" (click)="equipmentDetails.set(null)">Close</button>
     </div>
   </dialog>
+}
+
+@if (behaviorEditor(); as editor) {
+  @defer (on immediate) {
+    <tx-behavior-editor
+      [widget]="editor.widget"
+      [screen]="editor.screen"
+      [context]="behaviorContext(editor.widget)"
+      (applied)="applyBehavior($event)"
+      (closed)="behaviorEditor.set(null)"
+    />
+  }
 }

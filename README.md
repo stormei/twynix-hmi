@@ -1,6 +1,49 @@
 # Twynix HMI Studio
 
-An Angular 22 HMI editor and NestJS gateway for ThingsBoard 4.4. This first working slice supports offline screen design, authenticated telemetry and alarms, editable JavaScript behaviour, and versioned project publishing.
+Design, preview, and publish industrial HMI screens connected to ThingsBoard.
+Twynix HMI Studio combines an Angular editor with a NestJS gateway for authenticated
+telemetry, alarms, and versioned project releases.
+
+**Status:** Early development. Review the [roadmap](docs/ROADMAP.md) and
+[security boundaries](docs/architecture/security-boundaries.md) before evaluation.
+Development and automated testing use simulated equipment and isolated services.
+
+- **Visual editing:** SVG components, reusable symbols and faceplates, layers,
+  alignment tools, and undoable screen editing.
+- **Live data:** ThingsBoard telemetry and alarms with explicit binding quality.
+- **Configurable behavior:** Property expressions and resource-limited JavaScript.
+- **Versioned publishing:** Editable drafts and immutable runtime releases.
+
+[Get started](#run-locally) · [Architecture](docs/architecture/overview.md) ·
+[Contributing](CONTRIBUTING.md) · [Quality checks](docs/engineering/quality-gates.md)
+
+## Repository guidance and automation
+
+| Item                                           | Purpose                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [AGENTS.md](AGENTS.md)                         | Project rules for AI coding assistants: preserve contracts, use safe test data, and verify changes. |
+| [CLAUDE.md](CLAUDE.md)                         | Directs Claude Code to the same shared project rules.                                               |
+| [.agents/skills](.agents/skills)               | Focused instructions for feature delivery and Angular/SVG review.                                   |
+| [GitHub Actions](.github/workflows/verify.yml) | Automated quality, PostgreSQL, and performance jobs on pushes, pull requests, or manual runs.       |
+
+These files are normal engineering infrastructure. Assistant guidance does not run
+application code. GitHub Actions executes the checked-in workflow and retains check
+results; the current workflow has no deployment steps.
+
+## Adopted engineering foundation
+
+This project integrates [project-boilerplate](https://github.com/stormei/project-boilerplate)
+foundation **1.1.0 (unreleased)** at source commit
+`906da1b4e93a38c18b3ee1e5b936db76e94a55b0`, recorded in
+[foundation.json](foundation.json). The application and design system are preserved.
+[project.json](project.json) connects setup validation to the existing npm gates.
+
+Use `python3 scripts/check.py` for foundation-only checks and
+`python3 scripts/check.py --project` for foundation plus application verification,
+with Node selected from `.nvmrc`. Install remains a separate `npm ci` action.
+See [setup and evidence](docs/setup.md), [startup prompt](STARTUP_PROMPT.md),
+[security](SECURITY.md), [operations](docs/operations.md) and
+[changelog](CHANGELOG.md). Optional template UX previews are not installed.
 
 ## Run locally
 

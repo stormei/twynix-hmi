@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { Alarm, Binding, bindingKey, TagValue } from '@twynix/model';
 @Injectable({ providedIn: 'root' })
 export class RealtimeService {
@@ -12,8 +12,9 @@ export class RealtimeService {
   private retry?: ReturnType<typeof setTimeout>;
   private enabled = false;
   private retries = 0;
+  private includeAlarms = true;
   constructor() {
-    setInterval(() => {
+    const freshnessTimer = setInterval(() => {
       if (!this.enabled) return;
       this.values.update((values) => {
         const next = { ...values };
@@ -29,10 +30,15 @@ export class RealtimeService {
         return next;
       });
     }, 1000);
+    inject(DestroyRef).onDestroy(() => {
+      clearInterval(freshnessTimer);
+      this.disconnect();
+    });
   }
-  connect(bindings: Binding[]) {
+  connect(bindings: Binding[], alarms = true) {
     this.disconnect();
     this.bindings = [...new Map(bindings.map((b) => [bindingKey(b), b])).values()];
+    this.includeAlarms = alarms;
     this.enabled = true;
     this.expired.set(false);
     this.retries = 0;
@@ -45,9 +51,18 @@ export class RealtimeService {
     const socket = (this.socket = new WebSocket(
       `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/realtime`,
     ));
-    socket.onopen = () =>
-      socket.send(JSON.stringify({ type: 'subscribe', bindings: this.bindings, alarms: true }));
+    socket.onopen = () => {
+      if (socket === this.socket && this.enabled)
+        socket.send(
+          JSON.stringify({
+            type: 'subscribe',
+            bindings: this.bindings,
+            alarms: this.includeAlarms,
+          }),
+        );
+    };
     socket.onmessage = ({ data }) => {
+      if (socket !== this.socket || !this.enabled) return;
       try {
         const message = JSON.parse(data);
         if (message.type === 'connection') {
@@ -98,7 +113,10 @@ export class RealtimeService {
         Math.min(30000, 1000 * 2 ** this.retries++) + Math.random() * 500,
       );
     };
-    socket.onerror = () => this.error.set('Realtime connection interrupted.');
+    socket.onerror = () => {
+      if (socket === this.socket && this.enabled)
+        this.error.set('Realtime connection interrupted.');
+    };
   }
   disconnect(clear = true) {
     this.enabled = false;

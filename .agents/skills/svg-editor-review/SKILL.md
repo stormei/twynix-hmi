@@ -20,6 +20,18 @@ For connections, preserve port identity and occupancy, endpoints after moves/res
 pinned bends, obstacle handling and bridge-versus-tee semantics. Verify electrical,
 pneumatic and digital styles remain separate from process piping.
 
+For scripted geometry, read the
+[appearance behavior design](../../../docs/features/widget-scripting.md). Check
+widgets, ports, routes, obstacles and bridges consume the same runtime transform
+without changing saved geometry or accumulating offsets. Check out-of-screen
+results fail atomically and pending/failed appearances restore baseline rendering.
+
+For reusable component operations, read the
+[component guide](../../../docs/features/reusable-components-and-bindings.md).
+Check whole-instance copy remaps identities, partial copy detaches the reusable
+link, and explicit upgrades retain surviving widget IDs and protect external
+wiring. Include pinned routes and rotated-instance geometry in affected checks.
+
 Check one intended undo transaction per committed gesture, no history mutation for
 preview-only feedback, reference remapping on copy/paste and schema roundtrips.
 Confirm Runtime reads a published snapshot and unusable telemetry does not display

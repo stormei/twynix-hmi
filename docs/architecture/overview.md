@@ -23,7 +23,11 @@ Documents are JSON, schema version 1, with screens containing widgets, group
 references and port connections. Defaults normalize older imports. There is no
 separate SVG DOM serialization format: SVG is generated from this model. Server
 publication clones the draft into a stored release; the UI selects draft or release
-according to mode. See [editor/runtime](editor-runtime.md).
+according to mode. Shared runtime services now own published screen context,
+telemetry/property bindings, behavior execution, actions and viewport handling;
+editor-only services own draft workflows and authoring gestures. A standalone
+operator viewer can reuse the runtime foundation; its shell is not implemented.
+See [editor/runtime](editor-runtime.md) for boundaries and remaining isolation limits.
 
 Dashboard rendering uses its own component folders, shared input contract and
 lazy registry. [Dashboard contributor guide](../dashboard-components.md) explains

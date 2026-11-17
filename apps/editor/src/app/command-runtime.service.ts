@@ -46,6 +46,7 @@ export interface CommandRecord {
 }
 export type SimulationResult = 'accepted' | 'confirmed' | 'failed' | 'timeout';
 export interface CommandHistoryEntry extends CommandRecord {
+  sample?: boolean;
   recordedAt: number;
   simulationResult: SimulationResult | null;
 }
@@ -63,12 +64,14 @@ export class CommandRuntimeService {
   readonly current = signal<CommandRecord | null>(null);
   readonly pending = signal<Pending | null>(null);
   readonly history = signal<CommandHistoryEntry[]>([]);
+  readonly clearedEntries = signal<CommandHistoryEntry[]>([]);
   simulationResult: SimulationResult = 'confirmed';
   private active?: Pending;
   private timer?: ReturnType<typeof setTimeout>;
   private generation = 0;
   private sentAfterTimestamp = 0;
   private lastReported?: { value: unknown; quality: string; timestamp: number };
+  private clearedHistoryId?: string;
   constructor() {
     inject(DestroyRef).onDestroy(() => this.reset());
   }
@@ -288,13 +291,45 @@ export class CommandRuntimeService {
       });
     }
   }
-  reset() {
+  reset(clearHistory = false) {
     this.generation++;
     this.clearTimer();
     this.pending.set(null);
     this.active = undefined;
     this.lastReported = undefined;
     this.current.set(null);
+    if (clearHistory) {
+      this.history.set([]);
+      this.clearedEntries.set([]);
+    }
+  }
+  clearHistory(widgetIds: readonly string[]) {
+    const ids = new Set(widgetIds);
+    const removed = this.history().filter((entry) => ids.has(entry.widgetId));
+    if (!removed.length) return;
+    this.clearedEntries.set(removed);
+    const current = this.current();
+    // Keep active feedback running, but do not resurrect an explicitly cleared attempt.
+    if (current && ids.has(current.widgetId)) this.clearedHistoryId = current.id;
+    this.history.update((entries) => entries.filter((entry) => !ids.has(entry.widgetId)));
+  }
+  undoClearHistory(widgetIds: readonly string[]) {
+    const ids = new Set(widgetIds);
+    const removed = this.clearedEntries().filter((entry) => ids.has(entry.widgetId));
+    if (!removed.length) return;
+    const current = this.current();
+    const restored = removed.map((entry) =>
+      current?.id === entry.id ? { ...entry, ...current } : entry,
+    );
+    this.history.update((entries) => {
+      const existing = new Set(entries.map((entry) => entry.id));
+      return [...entries, ...restored.filter((entry) => !existing.has(entry.id))]
+        .sort((a, b) => b.recordedAt - a.recordedAt)
+        .slice(0, 100);
+    });
+    if (removed.some((entry) => entry.id === this.clearedHistoryId))
+      this.clearedHistoryId = undefined;
+    this.clearedEntries.update((entries) => entries.filter((entry) => !ids.has(entry.widgetId)));
   }
   private clearTimer() {
     clearTimeout(this.timer);
@@ -303,7 +338,7 @@ export class CommandRuntimeService {
   private patch(patch: Partial<CommandRecord>) {
     this.current.update((current) => (current ? { ...current, ...patch } : null));
     const record = this.current();
-    if (!record?.simulated) return;
+    if (!record?.simulated || record.id === this.clearedHistoryId) return;
     this.history.update((entries) => {
       const previous = entries.find((entry) => entry.id === record.id);
       const entry: CommandHistoryEntry = {

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import {
   createStarterProject,
   createDashboardWidgets,
@@ -1140,7 +1141,44 @@ test('command Preview example is inserted without replacing screens and works of
   );
   const slider = page.getByRole('slider', { name: 'Speed setpoint', exact: true });
   const history = page.getByRole('region', { name: 'Preview command history', exact: true });
+  const exportCsv = history.getByRole('button', { name: 'Export CSV', exact: true });
+  const downloadHistory = async () => {
+    const downloaded = page.waitForEvent('download');
+    await exportCsv.click();
+    const download = await downloaded;
+    expect(download.suggestedFilename()).toMatch(/^twynix-preview-history-.*\.csv$/);
+    const path = await download.path();
+    expect(path).toBeTruthy();
+    return readFile(path!, 'utf8');
+  };
   await expect(history).toContainText('No attempts yet');
+  await expect(exportCsv).toBeDisabled();
+  const loadSamples = history.getByRole('button', { name: 'Load sample history', exact: true });
+  await loadSamples.click();
+  await expect(history.locator('tbody tr')).toHaveCount(7);
+  await loadSamples.click();
+  await expect(history.locator('tbody tr')).toHaveCount(7);
+  await history.getByRole('button', { name: 'Validation errors', exact: true }).click();
+  await expect(history.locator('tbody tr')).toHaveCount(2);
+  const sampleCsv = await downloadHistory();
+  expect(sampleCsv).toContain('Sample ·');
+  expect(sampleCsv).toContain('maintenance');
+  expect(sampleCsv).toContain('95');
+  expect(sampleCsv.split('\r\n')).toHaveLength(4);
+  await history
+    .getByRole('combobox', { name: 'Filter history by result', exact: true })
+    .selectOption('timeout');
+  await expect(history.locator('tbody tr')).toHaveCount(2);
+  await history
+    .getByRole('combobox', { name: 'Filter history by control', exact: true })
+    .selectOption({ label: 'Operating mode' });
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await history.getByRole('button', { name: 'Clear filters', exact: true }).click();
+  await page.screenshot({ path: test.info().outputPath('command-history-samples.png') });
+  // No command has been prepared yet: Reset must still clear preloaded samples.
+  await page.getByRole('button', { name: 'Reset example', exact: true }).click();
+  await expect(history).toContainText('No attempts yet');
+  await expect(exportCsv).toBeDisabled();
   await expect(slider).toHaveAttribute('tabindex', '0');
   await expect(slider).toHaveValue('30');
   await slider.focus();
@@ -1183,14 +1221,106 @@ test('command Preview example is inserted without replacing screens and works of
   await expect(history.locator('tbody tr')).toHaveCount(4);
   await expect(history.locator('tbody tr').first()).toContainText('Reply only');
   await expect(history.locator('tbody tr').first()).toContainText('timeout');
+  const controlFilter = history.getByRole('combobox', {
+    name: 'Filter history by control',
+    exact: true,
+  });
+  const resultFilter = history.getByRole('combobox', {
+    name: 'Filter history by result',
+    exact: true,
+  });
+  const clearFilters = history.getByRole('button', { name: 'Clear filters', exact: true });
+  await resultFilter.selectOption('confirmed');
+  await expect(history.locator('tbody tr')).toHaveCount(2);
+  await controlFilter.selectOption({ label: 'Pump enable' });
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await expect(history.locator('tbody tr').first()).toContainText('true');
+  await history.getByRole('button', { name: 'Validation errors', exact: true }).click();
+  await expect(history).toContainText('No matching attempts');
+  await expect(exportCsv).toBeDisabled();
+  await controlFilter.selectOption('');
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await expect(history.locator('tbody tr').first()).toContainText('maintenance');
+  await expect(
+    history.getByRole('button', { name: 'Validation errors', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  const invalidCsv = await downloadHistory();
+  expect(invalidCsv).toContain('maintenance');
+  expect(invalidCsv).toContain('Not simulated');
+  expect(invalidCsv).toContain('Choose an allowed command value.');
+  expect(invalidCsv).not.toContain('Speed setpoint');
+  expect(invalidCsv.split('\r\n')).toHaveLength(3);
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await page.screenshot({ path: test.info().outputPath('command-history-csv.png') });
+  await page.screenshot({ path: test.info().outputPath('command-history-filters.png') });
+  await resultFilter.selectOption('simulation:accepted');
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await expect(history.locator('tbody tr').first()).toContainText('timeout');
+  const timeoutCsv = await downloadHistory();
+  expect(timeoutCsv).toContain('Reply only');
+  expect(timeoutCsv).toContain('"timeout"');
+  expect(timeoutCsv).not.toContain('maintenance');
+  await clearFilters.click();
+  await expect(history.locator('tbody tr')).toHaveCount(4);
+  await expect(clearFilters).toBeDisabled();
   await page.screenshot({ path: test.info().outputPath('command-history.png') });
+  await loadSamples.click();
+  await expect(history.locator('tbody tr')).toHaveCount(11);
+  await loadSamples.click();
+  await expect(history.locator('tbody tr')).toHaveCount(11);
   const reset = page.getByRole('button', { name: 'Reset example', exact: true });
+  const clearHistory = history.getByRole('button', { name: 'Clear history', exact: true });
+  const undoClear = history.getByRole('button', { name: 'Undo', exact: true });
+  await resultFilter.selectOption('invalid');
+  await clearHistory.click();
+  await expect(history).toContainText('No attempts yet');
+  await expect(slider).toHaveValue('35');
+  await expect(toggle).toBeChecked();
+  await expect(dropdown).toHaveValue('1');
+  await expect(feedback).toContainText('did not match in time');
+  await expect(resultFilter).toHaveValue('invalid');
+  await expect(exportCsv).toBeDisabled();
+  await expect(clearHistory).toBeDisabled();
+  await expect(undoClear).toBeVisible();
+  await expect(history).toContainText('11 history attempts cleared.');
+  await page.screenshot({ path: test.info().outputPath('command-history-cleared.png') });
+  await page.screenshot({ path: test.info().outputPath('command-history-undo.png') });
+  await undoClear.click();
+  await expect(history.locator('tbody tr')).toHaveCount(3);
+  await expect(undoClear).toHaveCount(0);
+  await expect(slider).toHaveValue('35');
+  await expect(toggle).toBeChecked();
+  await expect(dropdown).toHaveValue('1');
+  await expect(feedback).toContainText('did not match in time');
+  const restoredCsv = await downloadHistory();
+  expect(restoredCsv).toContain('Sample ·');
+  expect(restoredCsv).toContain('maintenance');
+  await clearFilters.click();
+  await expect(history.locator('tbody tr')).toHaveCount(11);
+  // A new attempt after Clear survives Undo alongside the restored rows.
+  await clearHistory.click();
+  await dropdown.selectOption('0');
+  await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await undoClear.click();
+  await expect(history.locator('tbody tr')).toHaveCount(12);
+  await expect(dropdown).toHaveValue('0');
+  await expect(feedback).toContainText('cancelled');
+  await clearHistory.click();
+  await loadSamples.click();
+  await expect(undoClear).toHaveCount(0);
+  await expect(history.locator('tbody tr')).toHaveCount(7);
+  await expect(slider).toHaveValue('35');
+  await resultFilter.selectOption('invalid');
   await reset.click();
   await expect(slider).toHaveValue('30');
   await expect(toggle).not.toBeChecked();
   await expect(dropdown).toHaveValue('0');
   await expect(feedback).toHaveCount(0);
   await expect(history).toContainText('No attempts yet');
+  await expect(undoClear).toHaveCount(0);
+  await expect(exportCsv).toBeDisabled();
+  await clearFilters.click();
   // Reset also cancels an in-flight simulated readback and its timer.
   await dropdown.selectOption('1');
   await expect(confirm.getByRole('combobox', { name: 'Simulate result', exact: true })).toHaveValue(
@@ -1201,12 +1331,30 @@ test('command Preview example is inserted without replacing screens and works of
     .selectOption('accepted');
   await confirm.getByRole('button', { name: 'Simulate command', exact: true }).click();
   await expect(feedback).toContainText('Waiting for a fresh matching');
+  await clearHistory.click();
+  await expect(history.locator('tbody tr')).toHaveCount(0);
+  await expect(dropdown).toHaveValue('1');
+  await expect(feedback).toContainText('did not match in time');
+  await expect(history.locator('tbody tr')).toHaveCount(0);
+  await undoClear.click();
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await expect(history.locator('tbody tr').first()).toContainText('timeout');
+  await expect(dropdown).toHaveValue('1');
+  await clearHistory.click();
   await reset.click();
+  await expect(undoClear).toHaveCount(0);
   await expect(dropdown).toHaveValue('0');
   await expect(feedback).toHaveCount(0);
   await page.waitForTimeout(2200);
   await expect(feedback).toHaveCount(0);
   await expect(history.locator('tbody tr')).toHaveCount(0);
+  await slider.focus();
+  await slider.press('ArrowRight');
+  await expect(confirm).toContainText('"speed": 35');
+  await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(history.locator('tbody tr')).toHaveCount(1);
+  await expect(history.locator('tbody tr').first()).toContainText('cancelled');
+  await reset.click();
   await page.screenshot({ path: test.info().outputPath('command-preview-lab.png') });
   const saved = (await page.evaluate(
     () => JSON.parse(localStorage.getItem('twynix.local-project.v1:smoke')!).project,
@@ -1221,6 +1369,7 @@ test('command Preview example is inserted without replacing screens and works of
   expect(rpcRequests).toBe(0);
   await page.getByRole('button', { name: 'Design', exact: true }).click();
   await expect(reset).toHaveCount(0);
+  await expect(clearHistory).toHaveCount(0);
   await page
     .locator(
       '[data-widget-id="' +

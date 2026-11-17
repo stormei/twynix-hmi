@@ -18,12 +18,13 @@
     "typecheck:tests": "tsc --noEmit -p tests/tsconfig.json --rootDir .",
     "typecheck:tooling": "tsc --noEmit -p tsconfig.tooling.json --rootDir .",
     "lint": "eslint apps packages tests scripts playwright*.config.ts eslint.config.mjs --max-warnings=0",
-    "format:check": "prettier --check apps packages tests scripts docs .github AGENTS.md CLAUDE.md README.md package.json package-lock.json angular.json tsconfig.json tsconfig.tooling.json eslint.config.mjs playwright.config.ts compose.yaml .agents/skills",
+    "format:check": "prettier --check apps packages tests scripts docs .github AGENTS.md CLAUDE.md README.md package.json package-lock.json angular.json tsconfig.json tsconfig.tooling.json eslint.config.mjs playwright.config.ts compose.yaml .agents/skills CONTRIBUTING.md SECURITY.md STARTUP_PROMPT.md CHANGELOG.md project.json foundation.json",
     "test:smoke": "playwright test",
     "test:postgres": "node scripts/engineering/postgres-tests.mjs",
     "benchmark": "node --import tsx scripts/engineering/benchmark.ts",
     "verify": "node scripts/engineering/verify.mjs",
-    "test:performance": "playwright test --config=playwright.performance.config.ts"
+    "test:performance": "playwright test --config=playwright.performance.config.ts",
+    "benchmark:scripting": "node --import tsx scripts/engineering/scripting-benchmark.ts"
   },
   "dependencies": {
     "@angular/common": "22.2.6",

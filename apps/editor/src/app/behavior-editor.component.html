@@ -1,0 +1,438 @@
+<dialog
+  #dialog
+  class="behavior-dialog binding-dialog"
+  aria-label="Widget behavior editor"
+  (close)="closed.emit()"
+>
+  <header class="binding-dialog-header">
+    <div>
+      <span class="eyebrow">{{ widget().name }}</span>
+      <h2>Widget behavior</h2>
+    </div>
+    <button class="modal-close" type="button" aria-label="Close behavior editor" (click)="close()">
+      ×
+    </button>
+  </header>
+  <div class="behavior-body">
+    <section aria-label="Telemetry input configuration">
+      <h3>Live ThingsBoard inputs</h3>
+      <p class="field-hint">
+        Choose authorized device or asset signals. Live values below come from the ThingsBoard
+        subscription, never from simulation.
+      </p>
+      <p role="status">
+        Connection: {{ api.user() ? live.state() : 'Sign in to receive live telemetry' }}
+        @if (live.expired()) {
+          · Session expired
+        }
+      </p>
+      @if (live.error()) {
+        <p class="inline-error" role="alert">{{ live.error() }}</p>
+      }
+      <div class="live-table-wrap">
+        <table aria-label="Live telemetry inputs">
+          <thead>
+            <tr>
+              <th>Alias / source</th>
+              <th>Live value</th>
+              <th>Quality / timestamp</th>
+              <th>Configure</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (alias of aliases(); track alias) {
+              <tr [attr.data-live-alias]="alias">
+                <td>
+                  <code>inputs.{{ alias }}</code
+                  ><small
+                    >{{ inputs()[alias].entityType }} · {{ inputs()[alias].key }} ·
+                    {{ inputs()[alias].unit }}</small
+                  >
+                </td>
+                <td>{{ display(liveInputs()[alias].value) }}</td>
+                <td>
+                  {{ liveInputs()[alias].quality
+                  }}<small>{{
+                    liveInputs()[alias].timestamp === null
+                      ? 'No sample'
+                      : (liveInputs()[alias].timestamp | date: 'medium')
+                  }}</small>
+                </td>
+                <td>
+                  <button type="button" class="text-button" (click)="editInput(alias)">
+                    Settings {{ alias }}</button
+                  ><button type="button" class="text-button danger" (click)="removeInput(alias)">
+                    Remove {{ alias }}
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4">No telemetry inputs configured.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="field-grid">
+        <label
+          >Input alias<input
+            aria-label="Input alias"
+            maxlength="48"
+            [(ngModel)]="alias"
+            placeholder="temperature"
+        /></label>
+        <label>Display unit<input maxlength="24" [(ngModel)]="unit" /></label>
+        <label
+          >Freshness (seconds)<input type="number" min="1" max="86400" [(ngModel)]="freshness"
+        /></label>
+      </div>
+      <button type="button" class="button secondary small" (click)="updateInput()">
+        Update input settings
+      </button>
+      <p class="field-hint">
+        Selecting a source adds or replaces the alias above. Browser values are fetched catalog
+        samples; the live table follows subscription updates.
+      </p>
+      <tx-data-browser [staleAfterMs]="freshness * 1000" (sourceSelected)="chooseSource($event)" />
+    </section>
+    <section aria-label="Behavior source and testing">
+      <h3>JavaScript</h3>
+      <label
+        >Behavior API<select
+          aria-label="Behavior API"
+          [ngModel]="resultMode()"
+          (ngModelChange)="setMode($event)"
+        >
+          <option value="effects">Legacy hmi effects · existing scripts</option>
+          <option value="appearance">Appearance result · return an object</option>
+        </select></label
+      >
+      @if (resultMode() === 'appearance') {
+        <fieldset>
+          <legend>Properties owned by this behavior</legend>
+          <div class="output-options">
+            @for (property of capabilities(); track property) {
+              <label class="check-field"
+                ><input
+                  #ownership
+                  type="checkbox"
+                  [checked]="outputs().includes(property)"
+                  (change)="toggleOutput(property, ownership.checked)"
+                />{{ property }}</label
+              >
+            }
+          </div>
+          <p class="field-hint">
+            An enabled property binding cannot own the same property. Missing outputs restore saved
+            appearance.
+          </p>
+        </fieldset>
+      } @else {
+        <p class="info-note">
+          Existing scripts keep the hmi API. Selecting a different API does not rewrite your source.
+          Appearance scripts return owned properties and cannot request actions.
+        </p>
+      }
+      <details class="template-library">
+        <summary>Reusable templates</summary>
+        <label
+          >Template<select
+            aria-label="Behavior template"
+            [ngModel]="templateId"
+            (ngModelChange)="chooseTemplate($event)"
+          >
+            @for (template of templates; track template.id) {
+              <option [value]="template.id">{{ template.name }} · v{{ template.version }}</option>
+            }
+          </select></label
+        >
+        <p>{{ template().description }}</p>
+        @if (!templateSupported()) {
+          <p class="inline-error">This widget does not support the template outputs.</p>
+        }
+        <div class="field-grid">
+          @for (slot of template().inputs; track slot) {
+            <label
+              >Template input {{ slot
+              }}<select
+                [attr.aria-label]="'Template input ' + slot"
+                [(ngModel)]="templateAliases[slot]"
+              >
+                <option value="">Choose a configured alias</option>
+                @for (alias of aliases(); track alias) {
+                  <option [value]="alias">{{ alias }}</option>
+                }
+              </select></label
+            >
+          }
+          @for (parameter of template().parameters; track parameter.key) {
+            <label
+              >{{ parameter.label }}
+              @if (parameter.type === 'number') {
+                <input
+                  type="number"
+                  [min]="parameter.min ?? null"
+                  [max]="parameter.max ?? null"
+                  [step]="parameter.integer ? 1 : 'any'"
+                  [(ngModel)]="templateParameters[parameter.key]"
+                />
+              } @else {
+                <input type="text" [(ngModel)]="templateParameters[parameter.key]" />
+              }
+            </label>
+          }
+        </div>
+        <button
+          type="button"
+          class="button secondary"
+          [disabled]="!templateSupported()"
+          (click)="insertTemplate()"
+        >
+          Insert template · replace draft source
+        </button>
+        <p class="field-hint">
+          Templates insert a local, versioned copy. Published widgets never change when the library
+          changes.
+        </p>
+      </details>
+      @if (templateOrigin(); as origin) {
+        <p class="field-hint">
+          Template origin: {{ origin.id }} · v{{ origin.version }} · editable local copy
+        </p>
+      }
+      <label
+        >Insert API reference<select
+          #completion
+          aria-label="Insert API reference"
+          (change)="insertToken(completion.value); completion.value = ''"
+        >
+          <option value="">Choose an input or API snippet</option>
+          @for (token of completionTokens(); track token) {
+            <option [value]="token">{{ token }}</option>
+          }
+        </select></label
+      >
+      <label
+        >JavaScript source<textarea
+          #editor
+          aria-label="Behavior JavaScript source"
+          aria-autocomplete="list"
+          aria-controls="behavior-code-completions"
+          class="script-editor"
+          spellcheck="false"
+          maxlength="20000"
+          [ngModel]="source()"
+          (ngModelChange)="setSource($event); suggest(editor)"
+          (keydown)="indent($event)"
+        ></textarea>
+      </label>
+      @if (suggestions().length) {
+        <div
+          #completions
+          id="behavior-code-completions"
+          class="behavior-code-completions"
+          role="listbox"
+          aria-label="JavaScript completions"
+        >
+          @for (token of suggestions(); track token; let index = $index) {
+            <button
+              type="button"
+              role="option"
+              [attr.aria-selected]="false"
+              (pointerdown)="$event.preventDefault()"
+              (click)="complete(token)"
+              (keydown)="moveCompletion($event, index)"
+            >
+              {{ token }}
+            </button>
+          }
+        </div>
+      }
+      <small
+        >{{ source().length }} / 20,000 characters · Tab inserts two spaces; Shift+Tab leaves the
+        editor.</small
+      >
+      <details>
+        <summary>API and geometry reference</summary>
+        <p>
+          Named signals expose value, quality, timestamp and unit. Use quality before calculating.
+          The appearance API supports helpers.clamp(value, min, max) and returns declared
+          properties:
+        </p>
+        <pre>{{
+          '{ text: "Ready", color: "#329c8c", position: { offsetX: 0, offsetY: 0 }, rotation: { offsetDegrees: 0 } }'
+        }}</pre>
+        <p>
+          Position offsets are screen pixels from saved geometry; rotation is a degree offset around
+          the saved center. Out-of-screen geometry fails. No browser, network, clock, random or
+          device action API is exposed to appearance scripts.
+        </p>
+      </details>
+      <section class="simulation-panel" aria-label="Behavior simulation panel">
+        <h3>Test and simulate</h3>
+        <p class="field-hint">
+          Live context.value uses the configured primary binding or constant. Without a primary
+          source it is null, never a demo value. Named inputs below are independent live signals.
+        </p>
+        <label
+          >Test inputs<select
+            aria-label="Test input mode"
+            [ngModel]="testMode()"
+            (ngModelChange)="testMode.set($event); changed()"
+          >
+            <option value="live">Live ThingsBoard snapshot</option>
+            <option value="simulation">Local simulation samples</option>
+          </select></label
+        >
+        <button type="button" class="text-button" (click)="copyLive()">
+          Copy live snapshot to simulation
+        </button>
+        @if (testMode() === 'simulation') {
+          <p class="info-note">
+            Simulation values stay in this dialog. They are never saved, sent to ThingsBoard or
+            substituted for live values.
+          </p>
+          <div class="field-grid">
+            <label
+              >Simulated context.value<input
+                [(ngModel)]="mainSample"
+                (ngModelChange)="changed()" /></label
+            ><label
+              >Simulated context.quality<select
+                [(ngModel)]="mainQuality"
+                (ngModelChange)="changed()"
+              >
+                <option value="good">Good</option>
+                <option value="simulation">Simulation</option>
+                <option value="stale">Stale</option>
+                <option value="unknown">Unknown</option>
+              </select></label
+            >
+          </div>
+          @for (alias of aliases(); track alias) {
+            <fieldset>
+              <legend>{{ alias }}</legend>
+              <div class="field-grid">
+                <label
+                  >Sample value (JSON or text)<input
+                    [attr.aria-label]="'Sample value ' + alias"
+                    [ngModel]="sampleValues[alias] ?? 'null'"
+                    (ngModelChange)="sampleValues[alias] = $event; changed()" /></label
+                ><label
+                  >Quality<select
+                    [attr.aria-label]="'Sample quality ' + alias"
+                    [ngModel]="sampleQualities[alias] ?? 'missing'"
+                    (ngModelChange)="sampleQualities[alias] = $event; changed()"
+                  >
+                    @for (quality of qualities; track quality) {
+                      <option [value]="quality">{{ quality }}</option>
+                    }
+                  </select></label
+                ><label
+                  >Timestamp (milliseconds)<input
+                    type="number"
+                    [ngModel]="sampleTimes[alias] ?? null"
+                    (ngModelChange)="sampleTimes[alias] = $event; changed()"
+                /></label>
+              </div>
+            </fieldset>
+          }
+        }
+        <button type="button" class="button primary" [disabled]="testing()" (click)="test()">
+          {{ testing() ? 'Evaluating…' : 'Test behavior' }}
+        </button>
+        <p class="field-hint">
+          Testing evaluates a captured snapshot in QuickJS. It changes neither the project nor the
+          running widget and never sends device commands.
+        </p>
+        @if (result(); as preview) {
+          <div aria-label="Behavior test result" aria-live="polite">
+            <strong
+              >{{ preview.mode === 'live' ? 'Live snapshot result' : 'Simulation result' }} ·
+              {{ preview.duration }} ms</strong
+            >
+            <time>Snapshot captured: {{ preview.capturedAt | date: 'medium' }}</time>
+            <pre>{{ preview.effects | json }}</pre>
+            <details>
+              <summary>Evaluated input snapshot</summary>
+              <pre>{{ preview.context | json }}</pre>
+            </details>
+          </div>
+          <div
+            class="preview-stage"
+            aria-label="Simulated widget appearance"
+            [style.height.px]="screen().height * scale()"
+          >
+            <div
+              class="preview-screen"
+              [style.width.px]="screen().width"
+              [style.height.px]="screen().height"
+              [style.transform]="'scale(' + scale() + ')'"
+            >
+              <div
+                class="preview-baseline"
+                [style.left.px]="widget().x"
+                [style.top.px]="widget().y"
+                [style.width.px]="widget().width"
+                [style.height.px]="widget().height"
+              ></div>
+              <div
+                class="preview-widget"
+                [style.left.px]="preview.widget.x"
+                [style.top.px]="preview.widget.y"
+                [style.width.px]="preview.widget.width"
+                [style.height.px]="preview.widget.height"
+              >
+                <div
+                  class="preview-content"
+                  [style.width.px]="contentSize(preview.widget).width"
+                  [style.height.px]="contentSize(preview.widget).height"
+                  [style.transform]="
+                    'translate(-50%, -50%) rotate(' + preview.widget.rotation + 'deg)'
+                  "
+                >
+                  @if (preview.widget.kind === 'html' || preview.widget.kind === 'iframe') {
+                    <div class="embed-placeholder">
+                      {{ preview.widget.name }} · embedded content
+                    </div>
+                  } @else if (isDashboardKind(preview.widget.kind)) {
+                    <tx-dashboard-widget
+                      [widget]="preview.widget"
+                      [value]="preview.context.value"
+                      [quality]="preview.context.quality"
+                      [color]="preview.appearance.color ?? widget().color"
+                      [text]="preview.appearance.text ?? null"
+                      [interactive]="false"
+                      [enabled]="false"
+                    />
+                  } @else {
+                    <svg
+                      twynixSymbol
+                      [widget]="preview.widget"
+                      [value]="preview.context.value"
+                      [quality]="preview.context.quality"
+                      [color]="preview.appearance.color ?? widget().color"
+                      [text]="preview.appearance.text ?? null"
+                    ></svg>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="field-hint">Dashed outline: saved bounds. Preview shows only this widget.</p>
+        }
+      </section>
+      @if (error()) {
+        <pre class="inline-error" role="alert">{{ error() }}</pre>
+      }
+    </section>
+  </div>
+  <footer class="binding-dialog-footer">
+    <button type="button" class="button secondary" (click)="close()">Cancel</button
+    ><span class="top-spacer"></span
+    ><button type="button" class="button primary" [disabled]="testing()" (click)="apply()">
+      Apply behavior
+    </button>
+  </footer>
+</dialog>

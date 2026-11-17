@@ -68,3 +68,30 @@ PostgreSQL and benchmark jobs, preserves artifacts on failure, requests read-onl
 repository permissions and has no deployment steps or production secrets. Creating
 the workflow does not execute remote CI. No commit/push is part of this retrofit.
 Independent review remains a separate handoff; local self-review is not independent.
+
+## Scripting hardening and sustained synthetic load
+
+`npm run benchmark:scripting` records fresh QuickJS evaluation timings for appearance,
+legacy effects and property expressions. `npm run test:performance` additionally runs
+a 30-second 20 Hz scripting/telemetry fixture with real Worker/WASM, bounded transport,
+legacy/new behavior and expressions. Results live under `artifacts/benchmarks`; no
+production endpoint, equipment or credentials are used. The existing 45-second
+per-test performance timeout and all build/lint budgets remain unchanged.
+See [widget scripting](../features/widget-scripting.md) for failure/recovery coverage,
+measured limits and the human security review requirement.
+
+## Adopted foundation checks
+
+`python3 scripts/validate_setup.py --strict` validates the configured setup without
+executing application commands. `python3 scripts/check.py` checks foundation text,
+links, security patterns, setup structure and isolated Python regressions; it
+explicitly does not test the application. `python3 scripts/check.py --project`
+adds the existing `npm run verify` aggregate through reviewed argument arrays in
+`project.json`. Select Node from `.nvmrc` and install locked dependencies first;
+verification does not install them. See [setup and provenance](../setup.md).
+
+The existing CI workflow adds a foundation job and a `Required checks` job that
+fails if foundation, quality, PostgreSQL or benchmark jobs fail, cancel or skip.
+Existing application gates, action pins and budgets are retained. Python tooling
+is pinned separately; no new application framework is added. GitHub-hosted CI and
+required-status protection must be verified on the remote repository separately.

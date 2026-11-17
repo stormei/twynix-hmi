@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "state": "configured",
+  "name": "Twynix HMI Studio",
+  "purpose": "Author, preview and publish industrial HMI screens with ThingsBoard telemetry, bounded JavaScript behaviors and guarded runtime actions.",
+  "runtimes": [
+    {
+      "name": "Node.js",
+      "version": "22.22.3",
+      "file": ".nvmrc"
+    }
+  ],
+  "dependencies": {
+    "mode": "locked",
+    "manifests": ["package.json"],
+    "lockfiles": ["package-lock.json"]
+  },
+  "commands": {
+    "install": ["npm", "ci"],
+    "dev": ["npm", "run", "dev"],
+    "verify": [
+      {
+        "name": "HMI quality gates",
+        "argv": ["npm", "run", "verify"],
+        "timeout_seconds": 1200
+      }
+    ]
+  },
+  "documents": {
+    "product": "docs/ROADMAP.md",
+    "architecture": "docs/architecture/overview.md",
+    "operations": "docs/operations.md"
+  },
+  "smoke_test": {
+    "instructions": "With the pinned Node and locked dependencies installed, run npm run build and npm run test:smoke. The isolated browser suite serves the production editor at loopback port 4300, uses synthetic API/telemetry fixtures, and exercises editing, Preview, published Runtime, script recovery and connected port geometry. See docs/engineering/quality-gates.md.",
+    "evidence": "2026-11-16 service extraction: 22 Chromium smoke tests passed; 171 Node tests and two isolated browser performance checks passed. Recorded in docs/architecture/editor-runtime.md. This historical evidence is not a claim of a clean export, remote CI, or production readiness; template-adoption checks are recorded in docs/setup.md."
+  }
+}

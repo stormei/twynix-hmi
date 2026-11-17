@@ -1,3 +1,5 @@
+import { behaviorConfigurationError } from './behavior';
+export * from './behavior';
 import { commandPolicySchema } from './commands';
 export * from './commands';
 export * from './discovery';
@@ -122,6 +124,36 @@ export const componentInstanceSchema = z.object({
     .nullable()
     .default(null),
 });
+export const behaviorOutputSchema = z.enum(['color', 'text', 'position', 'rotation']);
+export const behaviorConfigSchema = z
+  .object({
+    apiVersion: z.literal(1),
+    resultMode: z.enum(['effects', 'appearance']).optional(),
+    template: z
+      .object({ id: z.string().min(1).max(80), version: z.number().int().positive() })
+      .strict()
+      .optional(),
+    inputs: z
+      .record(
+        z
+          .string()
+          .regex(/^[A-Za-z][A-Za-z0-9_]{0,47}$/)
+          .refine(
+            (name) => !['constructor', 'prototype', '__proto__'].includes(name),
+            'Reserved input alias',
+          ),
+        bindingSchema,
+      )
+      .refine((inputs) => Object.keys(inputs).length <= 32, 'At most 32 inputs'),
+    outputs: z
+      .array(behaviorOutputSchema)
+      .max(4)
+      .refine((outputs) => new Set(outputs).size === outputs.length, 'Duplicate output ownership'),
+    fallback: z.literal('baseline'),
+  })
+  .strict();
+export type BehaviorConfig = z.infer<typeof behaviorConfigSchema>;
+
 export const widgetSchema = z.object({
   id: z.string().min(1).max(80),
   kind: z.enum(widgetKinds),
@@ -156,6 +188,7 @@ export const widgetSchema = z.object({
   enabled: z.boolean().default(true),
   action: actionSchema,
   behavior: z.string().max(20000).default(''),
+  behaviorConfig: behaviorConfigSchema.optional(),
   onClick: z.string().max(20000).default(''),
   onDoubleClick: z.string().max(20000).default(''),
   doubleClickAction: actionSchema.default({ type: 'none' }),
@@ -377,6 +410,12 @@ export const projectSchema = z
   .superRefine((project, ctx) => {
     if (new Set(project.components.map((type) => type.id)).size !== project.components.length)
       ctx.addIssue({ code: 'custom', message: 'Component type IDs must be unique.' });
+    for (const component of project.components)
+      for (const version of component.versions)
+        for (const widget of version.widgets) {
+          const error = behaviorConfigurationError(widget);
+          if (error) ctx.addIssue({ code: 'custom', message: error });
+        }
     for (const screen of project.screens)
       for (const widget of screen.widgets) {
         const instance = widget.component;
@@ -400,6 +439,8 @@ export const projectSchema = z
         if (versions.has(version.version) || version.template.kind !== type.kind)
           ctx.addIssue({ code: 'custom', message: 'Invalid faceplate version' });
         versions.add(version.version);
+        const behaviorError = behaviorConfigurationError(version.template);
+        if (behaviorError) ctx.addIssue({ code: 'custom', message: behaviorError });
         for (const property of bindableProperties) {
           const definition = version.template.propertyBindings[property];
           if (definition?.type === 'constant') {
@@ -456,6 +497,8 @@ export const projectSchema = z
         if (widgets.has(widget.id))
           ctx.addIssue({ code: 'custom', message: 'Widget IDs must be unique within a screen' });
         widgets.add(widget.id);
+        const behaviorError = behaviorConfigurationError(widget);
+        if (behaviorError) ctx.addIssue({ code: 'custom', message: behaviorError });
         if (widget.dashboard && widget.dashboard.type !== widget.kind)
           ctx.addIssue({
             code: 'custom',
@@ -749,6 +792,14 @@ export function widgetBindings(widget: Widget): Binding[] {
         staleAfterMs: Math.min(source.staleAfterMs, existing?.staleAfterMs ?? Infinity),
       });
     }
+  }
+  for (const source of Object.values(widget.behaviorConfig?.inputs ?? {})) {
+    const key = bindingKey(source);
+    const existing = bindings.get(key);
+    bindings.set(key, {
+      ...source,
+      staleAfterMs: Math.min(source.staleAfterMs, existing?.staleAfterMs ?? Infinity),
+    });
   }
   return [...bindings.values()];
 }

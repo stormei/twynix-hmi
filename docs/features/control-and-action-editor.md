@@ -190,3 +190,103 @@ one row per attempt and empty history after reset, including delayed-timer check
 Independent review is pending. Review checklist: Preview/Runtime separation,
 reset generation/timer cancellation, bounded session state, stable row identity,
 unchanged saved mappings and bundle budgets.
+
+### History filters
+
+The history panel has compact Control and Result selectors. Filters combine,
+with result choices separated into current status and chosen simulation, so a
+Reply only attempt can still be found after it reaches a readback timeout.
+Validation errors toggles the invalid-status filter; the control selection stays
+active. Clear filters restores all retained rows without deleting history. The
+header shows matching / total counts and empty matches explain how to recover.
+Reset example clears history even with active filters. Filters are local view
+state and remain selected until cleared or the panel is remounted.
+
+Acceptance evidence is in the command Preview browser regression: combined
+filters, no-match state, quick validation filtering, simulation/status distinction,
+restoring all rows, and resetting while filtered. Independent review remains
+pending; review filter composition, signal updates as phases change, keyboard
+labels/focus, reset behavior, saved-project immutability and unchanged budgets.
+
+### CSV export
+
+Export CSV downloads a snapshot of the currently filtered rows, newest first,
+without changing the history, filters, command state or saved project. The button
+is disabled when no rows match, including after Reset example. Files are named
+`twynix-preview-history-<UTC timestamp>.csv` and contain UTC timestamps, control,
+method, requested/reported JSON values, chosen simulation, status, quality,
+validation/feedback message and attempt ID. Not simulated is explicit for validation
+errors; blank requested values mean no value was supplied. UTF-8 BOM, CRLF records
+and quoted/escaped cells support spreadsheet imports. Formula-like editable text
+is prefixed with an apostrophe so it opens as text in spreadsheet applications.
+Downloads are created locally; no backend or equipment request is involved. A
+failed download start shows an error and retains the history for retry.
+
+Acceptance evidence: CSV unit tests cover columns, timestamps, numeric/boolean/null
+representations, Unicode, quotes, multiline text and formula-like names. The
+command Preview browser regression downloads filtered validation and timeout rows,
+checks their file content and filename, confirms export preserves rows, and checks
+no-match/reset disablement. Independent review is pending; review CSV escaping,
+filter snapshot semantics, download URL cleanup, empty/error states and unchanged
+Preview-only command boundaries.
+
+### Load sample history
+
+Load sample history in the lab history header inserts seven marked local fixtures:
+three confirmed commands (speed, enable and mode), two timeouts (unknown outcome
+and reply-only/readback timeout), and two validation errors (95 rpm and Maintenance).
+They refer to the actual lab widget IDs, so control/result filters and filtered CSV
+export work immediately. Samples are labeled in each row and in exported messages.
+Loading again refreshes this lab's sample rows, preserves interactive attempts and
+other screens' history, keeps the 100-entry cap, and clears filters to reveal the
+samples. It does not change controls, mappings or the current command/feedback.
+Reset example clears samples and interactive attempts, including when samples
+were loaded before the first command. Nothing is executed or sent to equipment.
+
+Acceptance evidence: sample factory tests verify fixture counts, stable widget
+references, types/outcomes, sample markers, CSV compatibility and untouched widgets.
+The browser regression verifies reload without duplicates, filter/export samples,
+reset before first command, and preserving four interactive rows when samples are
+reloaded. Independent review is pending; review early engine registration/reset,
+sample-versus-interactive identity, filter/CSV behavior and Preview-only boundaries.
+
+### Clear history without resetting controls
+
+Clear history in the panel header removes all sample and interactive rows for the
+current lab, including rows hidden by filters. It leaves slider/toggle/dropdown
+values, active filters, saved mappings, current feedback and pending simulation
+unchanged. The button is disabled when the lab history is empty; CSV export is
+also disabled after clearing. Other screens' history is retained.
+
+An in-flight attempt may still finish and update its feedback, but its cleared
+history row stays removed. Subsequent attempts record normally. Reset example
+continues to clear history and feedback and restore control defaults.
+
+Acceptance evidence: the command Preview browser regression clears eleven mixed
+rows while filtering validation errors and checks unchanged 35 rpm / Enabled /
+Automatic values, retained timeout feedback, empty/export-disabled states, sample
+reload, and Reset. It also clears an in-flight reply-only attempt, waits for timeout
+to verify the row does not reappear, and records a new cancelled attempt afterward.
+Independent review is pending; review lab-scoped removal, current-attempt suppression,
+new-attempt recording, keyboard controls, and Preview/Runtime separation.
+
+### Undo Clear history
+
+After Clear history, a compact notice shows the number removed and an Undo button.
+Undo restores the latest clear for this lab, including samples and filtered-out
+attempts, while preserving control values, active filters and current feedback.
+Restored rows support filtering and CSV export immediately. New attempts recorded
+after clearing are retained and merged by attempt ID, newest first, within the
+100-entry history cap. An in-flight restored attempt uses its latest feedback
+state and resumes ordinary history updates; Undo never replays a command.
+
+Undo is session-only and single-use. A subsequent clear replaces the snapshot.
+Reset example and Load sample history dismiss it. Feedback dismissal alone does
+not discard it. Other screens' rows are neither removed nor restored by this lab.
+
+Acceptance evidence: the command Preview browser regression checks restoration
+of eleven mixed rows under active validation filtering, restored CSV content,
+unchanged control values and feedback, merging a newer cancelled attempt, current
+readback timeout restoration, and invalidation by sample load and Reset. Independent
+review is pending; review snapshot scoping, deduplication/order/cap, pending attempt
+suppression/restoration, and separation from project undo and command execution.

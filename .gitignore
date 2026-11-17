@@ -158,3 +158,11 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Foundation Python tooling and private credential files
+__pycache__/
+*.pyc
+.venv/
+*.pem
+*.key
+credentials.json
